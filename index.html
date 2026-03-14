@@ -858,6 +858,21 @@
   .laz-stat-value.danger  { color: var(--danger);  }
   .laz-stat-value.success { color: var(--success); }
   .laz-stat-sub  { font-size: 0.68rem; color: var(--muted); }
+
+  /* Sticky notes */
+  #laz-notes-panel.open { transform: translateX(0); }
+  .laz-note-card {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 10px 11px;
+    animation: cardIn 0.15s ease both;
+  }
+  .laz-note-card:hover { border-color: var(--accent); }
+  .laz-note-textarea {
+    width: 100%; background: transparent; border: none; outline: none;
+    color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 0.81rem;
+    line-height: 1.6; resize: none; min-height: 60px;
+  }
+  .laz-note-meta { font-size: 0.66rem; color: var(--muted); margin-top: 6px; display: flex; justify-content: space-between; align-items: center; }
   .laz-header {
     display: flex; align-items: center; gap: 10px; margin-bottom: 20px;
     padding-bottom: 14px; border-bottom: 1px solid var(--border);
@@ -916,6 +931,7 @@
   }
 
 </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
 <div class="container">
@@ -1120,6 +1136,14 @@
             <div class="nav-item-desc" id="nav-discuss-desc">Odoo inbox, chatter & activity replies</div>
           </div>
           <span class="nav-item-badge live" id="nav-discuss-badge">unlocked</span>
+        </div>
+        <div class="nav-item" onclick="navGo('laz-support')">
+          <div class="nav-item-icon accent">🔧</div>
+          <div class="nav-item-text">
+            <div class="nav-item-title">Tech Support</div>
+            <div class="nav-item-desc">Scan, classify and draft support replies</div>
+          </div>
+          <span class="nav-item-badge live">unlocked</span>
         </div>
       </div>
 
@@ -1499,9 +1523,16 @@
 
       <!-- Pending Leads -->
       <div id="leads-section" style="display:none;margin-top:20px;border-top:1px solid var(--border);padding-top:16px">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px">
           <div style="font-size:0.78rem;font-weight:500;color:var(--text)" id="leads-count-label"></div>
-          <button class="btn btn-ghost" onclick="clearLeads()" style="padding:4px 10px;font-size:0.74rem">Clear all</button>
+          <div style="display:flex;gap:6px;align-items:center">
+            <button id="leads-export-xlsx-btn" class="btn btn-ghost" onclick="leadsExportExcel()" style="display:none;padding:4px 10px;font-size:0.74rem;gap:4px">
+              <svg width="11" height="11" viewBox="0 0 11 11" fill="none"><rect x="1" y="1" width="9" height="9" rx="1.5" stroke="currentColor" stroke-width="1.2"/><path d="M3.5 4L5.5 7 7.5 4M5.5 7V9.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              Excel
+            </button>
+            <button id="leads-export-csv-btn" class="btn btn-ghost" onclick="leadsExportCSV()" style="display:none;padding:4px 10px;font-size:0.74rem">CSV</button>
+            <button class="btn btn-ghost" onclick="clearLeads()" style="padding:4px 10px;font-size:0.74rem">Clear all</button>
+          </div>
         </div>
         <div id="leads-list"></div>
       </div>
@@ -1513,7 +1544,7 @@
   </div>
 
   <!-- STEP 6: Laz Mode -->
-  <div class="card hidden" id="step-6" style="padding:0;overflow:hidden">
+  <div class="card hidden" id="step-6" style="padding:0;overflow:hidden;position:relative">
 
     <!-- ── Header bar ─────────────────────────────────────── -->
     <div style="padding:16px 24px 0;background:var(--surface2);border-bottom:1px solid var(--border)">
@@ -1521,6 +1552,12 @@
         <div style="font-family:'DM Serif Display',serif;font-size:1.15rem;color:var(--text)">Laz Mode</div>
         <div class="laz-badge">⚡ ACTIVE</div>
         <div style="flex:1"></div>
+        <!-- Sticky Notes -->
+        <button onclick="toggleLazNotes()" id="laz-notes-btn" title="Sticky notes" style="position:relative;background:none;border:1px solid var(--border);border-radius:8px;padding:5px 10px;color:var(--muted);cursor:pointer;font-size:0.76rem;font-family:'DM Sans',sans-serif;display:flex;align-items:center;gap:5px;transition:all 0.15s" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="if(!document.getElementById('laz-notes-panel').classList.contains('open')){this.style.borderColor='var(--border)';this.style.color='var(--muted)'}">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 2h8v6.5L7.5 11H2V2z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M7.5 11V8.5H10" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 5h4M4 7h2.5" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>
+          Notes
+          <span id="laz-notes-count" style="display:none;background:var(--accent);color:var(--logo-ink,#0f0f0f);font-size:0.6rem;font-weight:700;border-radius:20px;padding:1px 5px;min-width:16px;text-align:center"></span>
+        </button>
         <!-- Pipeline user selector -->
         <div style="display:flex;align-items:center;gap:7px">
           <svg width="13" height="13" viewBox="0 0 13 13" fill="none" style="color:var(--muted)"><path d="M1 10V9a4 4 0 018 0v1M5 5.5a2 2 0 100-4 2 2 0 000 4z" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
@@ -1568,6 +1605,7 @@
           Discussions
           <span id="discuss-badge" style="display:none;position:absolute;top:-4px;right:-4px;background:var(--danger);color:#fff;font-size:0.6rem;font-weight:700;border-radius:20px;padding:1px 5px;min-width:16px;text-align:center"></span>
         </button>
+        <button class="laz-tab"        id="laz-tab-support"   onclick="lazTab('support')"   style="padding:8px 16px;font-size:0.8rem;border-radius:8px 8px 0 0;border:1px solid var(--border);border-bottom:none;background:transparent;color:var(--muted);cursor:pointer;font-family:'DM Sans',sans-serif">🔧 Support</button>
         <div style="flex:1"></div>
         <!-- Templates tucked as config gear -->
         <button onclick="lazTab('templates')" id="laz-tab-templates" style="display:flex;align-items:center;gap:5px;padding:6px 12px;font-size:0.76rem;border-radius:8px;border:1px solid var(--border);background:none;color:var(--muted);cursor:pointer;font-family:'DM Sans',sans-serif;margin-bottom:1px;transition:all 0.15s" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">
@@ -1746,13 +1784,25 @@
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 1l1.2 3.6L11 5.5l-2.9 2.7.7 3.8L6 10.2l-2.8 1.8.7-3.8L1 5.5l3.8-.9z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>
             Generate prospects
           </button>
-          <button class="btn btn-ghost" onclick="openTradeshowScraper()" style="padding:8px 16px;font-size:0.83rem;gap:6px;border-color:var(--accent);color:var(--accent)">
+          <button class="btn btn-ghost" onclick="openShowFinder()" style="padding:8px 16px;font-size:0.83rem;gap:6px;border-color:var(--accent);color:var(--accent)">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><circle cx="5" cy="5" r="3.5" stroke="currentColor" stroke-width="1.2"/><path d="M8 8l2.5 2.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><path d="M5 3v4M3 5h4" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>
+            Find shows
+          </button>
+          <button class="btn btn-ghost" onclick="openTradeshowScraper()" style="padding:8px 16px;font-size:0.83rem;gap:6px">
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M1 6a5 5 0 1010 0A5 5 0 001 6z" stroke="currentColor" stroke-width="1.2"/><path d="M6 1c-1.5 1.5-2 3-2 5s.5 3.5 2 5M6 1c1.5 1.5 2 3 2 5s-.5 3.5-2 5M1 6h10" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
-            Tradeshow floor plan
+            Scrape floor plan
           </button>
           <div id="prosp-status" style="font-size:0.78rem;color:var(--muted)"></div>
           <div style="flex:1"></div>
-          <button id="prosp-export-btn" onclick="prospExportCSV()" style="display:none" class="btn btn-ghost" style="padding:7px 12px;font-size:0.78rem">Export CSV</button>
+          <button id="prosp-reopen-finder-btn" onclick="openShowFinder()" style="display:none;gap:5px" class="btn btn-ghost">
+            <svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M7 2L3 5.5 7 9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Back to Finder
+          </button>
+          <button id="prosp-export-btn" onclick="prospExportExcel()" style="display:none;gap:5px" class="btn btn-ghost">
+            <svg width="11" height="11" viewBox="0 0 11 11" fill="none"><rect x="1" y="1" width="9" height="9" rx="1.5" stroke="currentColor" stroke-width="1.2"/><path d="M3.5 4L5.5 7 7.5 4M5.5 7V9.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Export Excel
+          </button>
+          <button id="prosp-export-csv-btn" onclick="prospExportCSV()" style="display:none" class="btn btn-ghost">CSV</button>
         </div>
       </div>
 
@@ -1770,7 +1820,133 @@
 
     </div>
 
-  </div><!-- end step-6 -->
+    <!-- ── Sticky Notes Panel ────────────────────────────── -->
+    <div id="laz-notes-panel" style="position:absolute;top:0;right:0;width:320px;height:100%;background:var(--surface);border-left:1px solid var(--border);display:flex;flex-direction:column;transform:translateX(100%);transition:transform 0.22s ease;z-index:100">
+      <div style="padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;flex-shrink:0">
+        <svg width="14" height="14" viewBox="0 0 12 12" fill="none"><path d="M2 2h8v6.5L7.5 11H2V2z" stroke="var(--accent)" stroke-width="1.3" stroke-linejoin="round"/><path d="M7.5 11V8.5H10" stroke="var(--accent)" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span style="font-size:0.82rem;font-weight:500;color:var(--text);flex:1">Notes</span>
+        <button onclick="lazAddNote()" style="background:var(--accent);border:none;border-radius:6px;padding:4px 10px;font-size:0.74rem;font-weight:600;color:var(--logo-ink,#0f0f0f);cursor:pointer;font-family:'DM Sans',sans-serif">+ New</button>
+        <button onclick="toggleLazNotes()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:1rem;padding:2px 4px;line-height:1">✕</button>
+      </div>
+      <div id="laz-notes-list" style="flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:8px"></div>
+    </div>
+
+    <!-- ── TECH SUPPORT ─────────────────────────────────────── -->
+    <div id="laz-support" style="display:none;padding:20px 24px">
+
+      <!-- Toolbar -->
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:16px">
+        <button class="btn btn-primary" onclick="supportScan()" id="support-scan-btn" style="padding:8px 18px;font-size:0.82rem;gap:6px">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><circle cx="5" cy="5" r="3.5" stroke="currentColor" stroke-width="1.3"/><path d="M8 8l2.5 2.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+          Scan for support emails
+        </button>
+        <input type="number" id="support-scan-limit" value="30" min="5" max="100" style="width:60px;background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:6px 8px;color:var(--text);font-family:'DM Mono',monospace;font-size:0.82rem;outline:none;text-align:center">
+        <span style="font-size:0.79rem;color:var(--muted)">emails</span>
+        <div id="support-scan-status" style="font-size:0.78rem;color:var(--muted)"></div>
+        <div style="flex:1"></div>
+        <button class="btn btn-ghost" onclick="openSupportTemplateWizard()" style="padding:7px 14px;font-size:0.79rem;gap:5px">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 1l1.2 3.6L11 5.5l-2.9 2.7.7 3.8L6 10.2l-2.8 1.8.7-3.8L1 5.5l3.8-.9z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>
+          Template wizard
+        </button>
+        <button class="btn btn-ghost" onclick="lazTab('support-templates')" id="laz-tab-support-templates" style="padding:7px 12px;font-size:0.79rem;gap:5px;border:1px solid var(--border);background:none;color:var(--muted);cursor:pointer;font-family:'DM Sans',sans-serif;border-radius:8px;display:flex;align-items:center" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">
+          <svg width="11" height="11" viewBox="0 0 11 11" fill="none"><rect x="1" y="1" width="9" height="9" rx="2" stroke="currentColor" stroke-width="1.2"/><path d="M3.5 4h4M3.5 6.5h2.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+          Templates
+        </button>
+        <div style="display:none" id="support-draft-btn-wrap">
+          <button class="btn btn-primary" onclick="supportDraftSelected()" style="padding:7px 16px;font-size:0.82rem">⚡ Draft replies</button>
+        </div>
+      </div>
+
+      <!-- Email list -->
+      <div id="support-email-list" style="display:flex;flex-direction:column;gap:6px;max-height:360px;overflow-y:auto;margin-bottom:16px"></div>
+
+      <!-- Support templates sub-panel -->
+      <div id="laz-support-templates-panel" style="display:none;border-top:1px solid var(--border);padding-top:16px">
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px">
+          <select id="support-tmpl-selector" onchange="supportLoadTemplate()" style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-family:'DM Mono',monospace;font-size:0.82rem;flex:1;outline:none;cursor:pointer">
+            <option value="">— Select a support template —</option>
+          </select>
+          <button class="btn btn-ghost" onclick="supportNewTemplate()" style="padding:7px 14px;font-size:0.8rem">+ New</button>
+          <button class="btn btn-ghost" onclick="supportDeleteTemplate()" style="padding:7px 14px;font-size:0.8rem;color:var(--danger);border-color:var(--danger);opacity:0.7">Delete</button>
+          <button class="btn btn-ghost" onclick="document.getElementById('laz-support-templates-panel').style.display='none'" style="padding:7px 12px;font-size:0.79rem">✕</button>
+        </div>
+        <div id="support-tmpl-editor" style="display:none">
+          <div class="form-grid" style="margin-bottom:10px">
+            <div class="form-group" style="margin-bottom:0">
+              <label>Template name</label>
+              <input type="text" id="support-tmpl-name" placeholder="e.g. Password Reset, Billing Question">
+            </div>
+            <div class="form-group" style="margin-bottom:0">
+              <label>Trigger keywords</label>
+              <input type="text" id="support-tmpl-keywords" placeholder="e.g. password, login, can't access">
+            </div>
+          </div>
+          <div class="form-group" style="margin-bottom:8px">
+            <label>Response template</label>
+            <textarea id="support-tmpl-body" class="laz-draft-area" style="min-height:180px" placeholder="Hi {{customer_name}},&#10;&#10;Thanks for reaching out. Here are the steps to resolve {{subject}}:&#10;&#10;1. &#10;2. &#10;3. &#10;&#10;Please let me know if this doesn't resolve the issue.&#10;&#10;{{my_name}}&#10;Support Team"></textarea>
+          </div>
+          <div style="font-size:0.72rem;color:var(--muted);margin-bottom:12px">
+            Variables: <span class="laz-var-pill">{{customer_name}}</span> <span class="laz-var-pill">{{subject}}</span> <span class="laz-var-pill">{{my_name}}</span> <span class="laz-var-pill">{{date}}</span>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <button class="btn btn-primary" onclick="supportSaveTemplate()" style="padding:7px 18px;font-size:0.81rem">Save template</button>
+            <div id="support-tmpl-status" style="font-size:0.79rem;color:var(--muted)"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Draft workspace -->
+      <div id="support-draft-workspace" style="display:none">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);font-weight:500">Support reply workspace</div>
+          <div style="display:flex;gap:6px;align-items:center">
+            <button class="btn btn-ghost" id="support-ws-prev" onclick="supportWorkspacePage(-1)" style="padding:4px 10px;font-size:0.76rem">← Prev</button>
+            <span id="support-ws-page" style="font-size:0.76rem;color:var(--muted);align-self:center"></span>
+            <button class="btn btn-ghost" id="support-ws-next" onclick="supportWorkspacePage(1)"  style="padding:4px 10px;font-size:0.76rem">Next →</button>
+          </div>
+        </div>
+
+        <div class="laz-split">
+          <!-- Left: issue summary -->
+          <div class="laz-panel">
+            <div class="laz-panel-label">Issue summary</div>
+            <div id="support-summary-subject" style="font-weight:500;font-size:0.88rem;color:var(--text);margin-bottom:3px"></div>
+            <div id="support-summary-sender"  style="font-size:0.73rem;color:var(--muted);margin-bottom:10px"></div>
+            <!-- Issue type badge -->
+            <div id="support-issue-type" style="display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;border:1px solid var(--border);font-size:0.72rem;color:var(--muted);margin-bottom:10px"></div>
+            <div id="support-summary-bullets" style="margin-bottom:12px"></div>
+            <details>
+              <summary style="font-size:0.72rem;color:var(--muted);cursor:pointer;user-select:none">Original email ↓</summary>
+              <pre id="support-summary-body" style="font-size:0.71rem;font-family:'DM Mono',monospace;color:var(--muted);white-space:pre-wrap;word-break:break-word;max-height:160px;overflow-y:auto;margin-top:8px;padding:10px;background:var(--surface);border:1px solid var(--border);border-radius:7px;line-height:1.5"></pre>
+            </details>
+          </div>
+
+          <!-- Right: draft reply -->
+          <div class="laz-panel">
+            <div class="laz-panel-label">Draft reply</div>
+            <!-- Template chips -->
+            <div id="support-template-chips" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"></div>
+            <input type="text" id="support-draft-subject" placeholder="Subject" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:7px 10px;color:var(--text);font-family:'DM Mono',monospace;font-size:0.8rem;outline:none;margin-bottom:8px">
+            <textarea id="support-draft-body" class="laz-draft-area" style="min-height:280px" placeholder="AI draft will appear here…"></textarea>
+            <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+              <button class="btn btn-ghost" onclick="supportRegenerate()" style="padding:6px 12px;font-size:0.78rem;gap:5px">
+                <svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M9 2.5A4 4 0 1 0 9.8 6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M8 1v2.5h2.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Regenerate
+              </button>
+              <button class="btn btn-ghost" onclick="supportCopy()" style="padding:6px 12px;font-size:0.78rem">Copy</button>
+              <div style="flex:1"></div>
+              <button class="btn btn-primary" onclick="supportSend()" style="padding:6px 14px;font-size:0.78rem;gap:5px">
+                <svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M1 1l9 4.5L1 10V6.5l6-2-6-2V1z" fill="currentColor"/></svg>
+                Open in mail client
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  
+
 
     <!-- ── DISCUSSIONS ──────────────────────────────────────── -->
     <div id="laz-discuss" style="display:none;padding:20px 24px">
@@ -1812,6 +1988,77 @@
       </div>
     </div>
 
+  </div><!-- end step-6 -->
+
+<!-- Show Finder Modal -->
+  <div id="show-finder-modal" class="modal-overlay hidden">
+    <div class="modal" style="max-width:700px">
+      <div class="modal-header">
+        <div class="modal-header-text">
+          <div class="record">Tradeshow Finder</div>
+          <div class="contact">Find scrapable exhibitor lists for your industry</div>
+        </div>
+        <button class="modal-close" onclick="closeShowFinder()">✕</button>
+      </div>
+
+      <div class="modal-body" style="gap:12px">
+
+        <!-- Search criteria -->
+        <div id="sf-search-panel">
+          <div class="form-grid" style="margin-bottom:10px">
+            <div class="form-group" style="margin-bottom:0">
+              <label>Industry / market</label>
+              <input type="text" id="sf-industry" placeholder="e.g. AV production, event staging, broadcast, hospitality" style="font-size:0.82rem">
+            </div>
+            <div class="form-group" style="margin-bottom:0">
+              <label>Region <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted)">(optional)</span></label>
+              <input type="text" id="sf-region" placeholder="e.g. United States, Las Vegas, Europe" style="font-size:0.82rem">
+            </div>
+          </div>
+          <div class="form-grid" style="margin-bottom:12px">
+            <div class="form-group" style="margin-bottom:0">
+              <label>Year / timeframe</label>
+              <input type="text" id="sf-year" value="2026" style="font-size:0.82rem">
+            </div>
+            <div class="form-group" style="margin-bottom:0">
+              <label>Show count to find</label>
+              <select id="sf-count" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.82rem;outline:none;cursor:pointer;width:100%">
+                <option value="8">8 shows</option>
+                <option value="12" selected>12 shows</option>
+                <option value="20">20 shows</option>
+              </select>
+            </div>
+          </div>
+          <button class="btn btn-primary" onclick="sfFindShows()" id="sf-find-btn" style="padding:8px 20px;font-size:0.83rem;gap:6px">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><circle cx="5" cy="5" r="3.5" stroke="currentColor" stroke-width="1.2"/><path d="M8 8l2.5 2.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+            Find tradeshows
+          </button>
+        </div>
+
+        <!-- Status -->
+        <div id="sf-status" style="font-size:0.79rem;color:var(--muted);min-height:18px"></div>
+
+        <!-- Results -->
+        <div id="sf-results" style="display:none">
+          <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);font-weight:500;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center">
+            <span>Shows found — testing exhibitor list accessibility</span>
+            <span id="sf-results-summary" style="font-size:0.76rem;font-weight:400;font-family:'DM Mono',monospace"></span>
+          </div>
+          <div id="sf-show-list" style="display:flex;flex-direction:column;gap:6px;max-height:400px;overflow-y:auto"></div>
+        </div>
+
+      </div>
+
+      <div class="modal-footer" style="flex-wrap:wrap;gap:8px">
+        <button class="btn btn-ghost" onclick="closeShowFinder()">Close</button>
+        <div style="flex:1"></div>
+        <button id="sf-proceed-btn" onclick="sfProceedSelected()" style="display:none" class="btn btn-primary">
+          Open selected in scraper →
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Tradeshow Scraper Modal -->
   <div id="tradeshow-modal" class="modal-overlay hidden">
     <div class="modal" style="max-width:680px">
@@ -1825,42 +2072,105 @@
 
       <div class="modal-body" style="gap:12px">
 
-        <!-- URL input -->
-        <div style="display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap">
-          <div style="flex:1;min-width:200px">
-            <label style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);font-weight:500;display:block;margin-bottom:6px">Exhibitor list URL</label>
-            <input type="url" id="ts-url" placeholder="https://www.mapyourshow.com/shows/..." style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-family:'DM Mono',monospace;font-size:0.8rem;outline:none">
-            <div style="font-size:0.72rem;color:var(--muted);margin-top:5px;line-height:1.5">Works with: Map Your Show, A2Z Events, Exhibitorscene, EventsAir, and most static exhibitor list pages. If the page is JavaScript-heavy, use the paste option below.</div>
-          </div>
-          <button class="btn btn-primary" onclick="tsFetchURL()" id="ts-fetch-btn" style="padding:9px 16px;font-size:0.82rem;margin-top:22px;white-space:nowrap;gap:6px">
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 1v8M2 6l4 4 4-4M1 11h10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            Fetch page
-          </button>
+        <!-- Method tabs -->
+        <div style="display:flex;gap:0;border:1px solid var(--border);border-radius:9px;overflow:hidden;width:fit-content">
+          <button id="ts-method-url"   onclick="tsSetMethod('url')"   style="padding:7px 16px;font-size:0.79rem;background:var(--accent-dim);color:var(--accent);border:none;cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:500;border-right:1px solid var(--border)">Try URL</button>
+          <button id="ts-method-paste" onclick="tsSetMethod('paste')" style="padding:7px 16px;font-size:0.79rem;background:none;color:var(--muted);border:none;cursor:pointer;font-family:'DM Sans',sans-serif">Paste text</button>
         </div>
 
-        <!-- OR paste option -->
-        <details id="ts-paste-section" style="margin-top:2px">
-          <summary style="font-size:0.78rem;color:var(--muted);cursor:pointer;user-select:none;padding:4px 0">
-            — or paste page source / text manually
-          </summary>
-          <div style="margin-top:8px">
-            <div style="font-size:0.72rem;color:var(--muted);margin-bottom:6px;line-height:1.5">
-              On the exhibitor page: right-click → View Page Source (Ctrl+U) → Ctrl+A → Ctrl+C → paste here.<br>
-              Or copy the visible text directly from the page.
-            </div>
-            <textarea id="ts-paste-text" style="width:100%;min-height:120px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-family:'DM Mono',monospace;font-size:0.74rem;outline:none;resize:vertical;line-height:1.5" placeholder="Paste page source or text here…"></textarea>
-            <button class="btn btn-ghost" onclick="tsUsePaste()" style="padding:6px 14px;font-size:0.79rem;margin-top:6px">Use pasted content →</button>
+        <!-- URL method -->
+        <div id="ts-section-url">
+          <div style="display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap">
+            <input type="url" id="ts-url" placeholder="https://www.mapyourshow.com/shows/..." style="flex:1;min-width:200px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-family:'DM Mono',monospace;font-size:0.8rem;outline:none">
+            <button class="btn btn-primary" onclick="tsFetchURL()" id="ts-fetch-btn" style="padding:9px 16px;font-size:0.82rem;white-space:nowrap;gap:6px">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 1v8M2 6l4 4 4-4M1 11h10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              Fetch page
+            </button>
           </div>
-        </details>
+          <div style="font-size:0.72rem;color:var(--muted);margin-top:6px;line-height:1.6">
+            Works on static exhibitor lists. <strong style="color:var(--text)">NAB, NAMM, InfoComm, and most tradeshow floor plan sites use JavaScript rendering</strong> — if this returns no results, use the Paste Text method instead.
+          </div>
+          <div style="margin-top:8px;padding:8px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <span style="font-size:0.74rem;color:var(--muted)">🧪 Test with a real live static list:</span>
+            <code style="font-size:0.71rem;color:var(--accent);font-family:'DM Mono',monospace;flex:1">IAEE Expo! Expo! 2026 — 100 exhibitors, booth numbers included</code>
+            <button class="btn btn-ghost" onclick="tsLoadTestData()" style="padding:5px 12px;font-size:0.77rem;white-space:nowrap;border-color:var(--accent);color:var(--accent)">Load test data →</button>
+          </div>
+        </div>
+
+        <!-- Paste method -->
+        <div id="ts-section-paste" style="display:none">
+
+          <!-- Bookmarklet install (primary method) -->
+          <div style="background:var(--surface2);border:1px solid var(--accent);border-radius:10px;padding:14px 16px;margin-bottom:10px">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+              <div style="font-size:0.82rem;font-weight:500;color:var(--accent)">⚡ One-click grab — install this bookmarklet</div>
+              <span style="font-size:0.68rem;padding:2px 7px;border-radius:20px;background:var(--accent-dim);color:var(--accent);border:1px solid rgba(200,240,78,0.3)">recommended</span>
+            </div>
+            <div style="font-size:0.76rem;color:var(--muted);line-height:1.7;margin-bottom:10px">
+              Drag the button below to your browser's bookmark bar. Then on any exhibitor list page, just click it — the text is sent directly to this scraper automatically. No copy/paste needed.
+            </div>
+            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+              <a id="ts-bookmarklet-link" href="#" style="display:inline-flex;align-items:center;gap:6px;padding:9px 16px;background:var(--accent);color:var(--bg);border-radius:8px;font-size:0.82rem;font-weight:600;text-decoration:none;cursor:grab;font-family:'DM Sans',sans-serif;user-select:none" title="Drag me to your bookmark bar!">
+                <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M6.5 1v8M3 6l3.5 3.5L10 6M1.5 11h10" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                📋 Grab Exhibitors → OEL
+              </a>
+              <div style="font-size:0.73rem;color:var(--muted);line-height:1.6">
+                ← Drag to bookmark bar<br>
+                Then click it on any exhibitor page
+              </div>
+            </div>
+            <div style="margin-top:10px;padding:8px 10px;background:var(--surface);border:1px solid var(--border);border-radius:7px">
+              <div style="font-size:0.68rem;text-transform:uppercase;letter-spacing:0.07em;color:var(--muted);margin-bottom:5px">How it works</div>
+              <div style="font-size:0.74rem;color:var(--muted);line-height:1.6">
+                1. Drag the button above to your bookmark bar (one time setup)<br>
+                2. Navigate to any tradeshow exhibitor list page<br>
+                3. Click the bookmarklet — it grabs all visible text<br>
+                4. Come back here — content loads automatically ✓
+              </div>
+            </div>
+          </div>
+
+          <!-- Auto-detect banner (shown when bookmarklet has data waiting) -->
+          <div id="ts-bookmarklet-ready" style="display:none;background:var(--accent-dim);border:1px solid var(--accent);border-radius:9px;padding:10px 14px;margin-bottom:10px;display:none;align-items:center;gap:10px">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="var(--accent)" stroke-width="1.3"/><path d="M5 8l2.5 2.5L11 5" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <div style="flex:1">
+              <div style="font-size:0.82rem;font-weight:500;color:var(--accent)">Bookmarklet data ready!</div>
+              <div id="ts-bookmarklet-info" style="font-size:0.73rem;color:var(--muted)"></div>
+            </div>
+            <button class="btn btn-primary" onclick="tsLoadBookmarkletData()" style="padding:6px 14px;font-size:0.79rem">Load it →</button>
+          </div>
+
+          <!-- Fallback: manual paste -->
+          <details id="ts-manual-paste-details">
+            <summary style="font-size:0.78rem;color:var(--muted);cursor:pointer;user-select:none;padding:4px 0;list-style:none">
+              <span style="display:flex;align-items:center;gap:6px">
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 3.5L5 6.5 8 3.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Can't use the bookmarklet? Paste manually instead
+              </span>
+            </summary>
+            <div style="margin-top:10px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;font-size:0.75rem;color:var(--muted);line-height:1.8;margin-bottom:8px">
+              <strong style="color:var(--text)">On the exhibitor list page:</strong><br>
+              Click anywhere on the list → <strong style="color:var(--text)">Ctrl+A</strong> → <strong style="color:var(--text)">Ctrl+C</strong> → paste below<br>
+              Or press <strong style="color:var(--text)">Ctrl+U</strong> for page source → Ctrl+A → Ctrl+C → paste below
+            </div>
+            <textarea id="ts-paste-text" style="width:100%;min-height:120px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-family:'DM Mono',monospace;font-size:0.74rem;outline:none;resize:vertical;line-height:1.5" placeholder="Paste exhibitor list text here…"></textarea>
+            <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
+              <button class="btn btn-primary" onclick="tsUsePaste()" style="padding:7px 16px;font-size:0.8rem">Use this content →</button>
+              <span style="font-size:0.72rem;color:var(--muted)" id="ts-paste-charcount"></span>
+            </div>
+          </details>
+        </div>
 
         <!-- Status -->
         <div id="ts-status" style="font-size:0.79rem;color:var(--muted);min-height:20px"></div>
 
         <!-- Preview of scraped text -->
         <div id="ts-preview-section" style="display:none">
-          <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);font-weight:500;margin-bottom:6px">Page content preview</div>
-          <pre id="ts-preview" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:0.71rem;font-family:'DM Mono',monospace;color:var(--muted);white-space:pre-wrap;word-break:break-word;max-height:160px;overflow-y:auto;line-height:1.5;margin:0"></pre>
-          <div style="font-size:0.72rem;color:var(--muted);margin-top:4px" id="ts-preview-len"></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);font-weight:500">Content loaded — preview</div>
+            <div id="ts-preview-len" style="font-size:0.71rem;color:var(--muted);font-family:'DM Mono',monospace"></div>
+          </div>
+          <pre id="ts-preview" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:0.71rem;font-family:'DM Mono',monospace;color:var(--muted);white-space:pre-wrap;word-break:break-word;max-height:140px;overflow-y:auto;line-height:1.5;margin:0"></pre>
         </div>
 
         <!-- Extraction config -->
@@ -1868,23 +2178,36 @@
           <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);font-weight:500;margin-bottom:12px">AI extraction settings</div>
           <div class="form-grid" style="margin-bottom:10px">
             <div class="form-group" style="margin-bottom:0">
-              <label>Show / event name <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted)">(optional context)</span></label>
-              <input type="text" id="ts-show-name" placeholder="e.g. NAB Show 2026, NAMM 2026">
+              <label>Show / event name</label>
+              <input type="text" id="ts-show-name" placeholder="e.g. NAB Show 2026">
             </div>
             <div class="form-group" style="margin-bottom:0">
-              <label>Focus on industries <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted)">(optional filter)</span></label>
-              <input type="text" id="ts-industry-filter" placeholder="e.g. AV, production, staging — leave blank for all">
+              <label>Filter by industry <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted)">(blank = all)</span></label>
+              <input type="text" id="ts-industry-filter" placeholder="e.g. AV, broadcast, production">
             </div>
           </div>
-          <div class="form-group" style="margin-bottom:0">
-            <label>What to extract</label>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">
-              <label style="display:flex;align-items:center;gap:5px;font-size:0.8rem;color:var(--muted);cursor:pointer"><input type="checkbox" id="ts-ext-company" checked style="accent-color:var(--accent)"> Company name</label>
-              <label style="display:flex;align-items:center;gap:5px;font-size:0.8rem;color:var(--muted);cursor:pointer"><input type="checkbox" id="ts-ext-booth" checked style="accent-color:var(--accent)"> Booth number</label>
-              <label style="display:flex;align-items:center;gap:5px;font-size:0.8rem;color:var(--muted);cursor:pointer"><input type="checkbox" id="ts-ext-contact" checked style="accent-color:var(--accent)"> Contact name</label>
-              <label style="display:flex;align-items:center;gap:5px;font-size:0.8rem;color:var(--muted);cursor:pointer"><input type="checkbox" id="ts-ext-email" checked style="accent-color:var(--accent)"> Email</label>
-              <label style="display:flex;align-items:center;gap:5px;font-size:0.8rem;color:var(--muted);cursor:pointer"><input type="checkbox" id="ts-ext-phone" style="accent-color:var(--accent)"> Phone</label>
-              <label style="display:flex;align-items:center;gap:5px;font-size:0.8rem;color:var(--muted);cursor:pointer"><input type="checkbox" id="ts-ext-website" style="accent-color:var(--accent)"> Website</label>
+          <div class="form-grid" style="margin-bottom:10px">
+            <div class="form-group" style="margin-bottom:0">
+              <label>Extract fields</label>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">
+                <label style="display:flex;align-items:center;gap:5px;font-size:0.8rem;color:var(--muted);cursor:pointer"><input type="checkbox" id="ts-ext-company" checked style="accent-color:var(--accent)"> Company</label>
+                <label style="display:flex;align-items:center;gap:5px;font-size:0.8rem;color:var(--muted);cursor:pointer"><input type="checkbox" id="ts-ext-booth" checked style="accent-color:var(--accent)"> Booth #</label>
+                <label style="display:flex;align-items:center;gap:5px;font-size:0.8rem;color:var(--muted);cursor:pointer"><input type="checkbox" id="ts-ext-contact" checked style="accent-color:var(--accent)"> Contact</label>
+                <label style="display:flex;align-items:center;gap:5px;font-size:0.8rem;color:var(--muted);cursor:pointer"><input type="checkbox" id="ts-ext-email" checked style="accent-color:var(--accent)"> Email</label>
+                <label style="display:flex;align-items:center;gap:5px;font-size:0.8rem;color:var(--muted);cursor:pointer"><input type="checkbox" id="ts-ext-phone" style="accent-color:var(--accent)"> Phone</label>
+                <label style="display:flex;align-items:center;gap:5px;font-size:0.8rem;color:var(--muted);cursor:pointer"><input type="checkbox" id="ts-ext-website" style="accent-color:var(--accent)"> Website</label>
+              </div>
+            </div>
+            <div class="form-group" style="margin-bottom:0">
+              <label>Max exhibitors to capture</label>
+              <select id="ts-max-exhibitors" style="background:var(--surface);border:1px solid var(--accent);border-radius:8px;padding:8px 10px;color:var(--accent);font-family:'DM Mono',monospace;font-size:0.82rem;outline:none;cursor:pointer;width:100%;font-weight:500">
+                <option value="250">250 exhibitors (1 pass)</option>
+                <option value="500">500 exhibitors (2 passes)</option>
+                <option value="750">750 exhibitors (3 passes)</option>
+                <option value="1000">1,000 exhibitors (4 passes)</option>
+                <option value="0">All — run until complete</option>
+              </select>
+              <div style="font-size:0.7rem;color:var(--muted);margin-top:4px">Each pass extracts ~250. Auto-continues between passes.</div>
             </div>
           </div>
         </div>
@@ -1892,12 +2215,107 @@
       </div>
 
       <div class="modal-footer" style="flex-wrap:wrap;gap:10px">
-        <button class="btn btn-ghost" onclick="closeTradeshowScraper()">Cancel</button>
-        <div id="ts-extract-status" style="font-size:0.79rem;color:var(--muted);align-self:center"></div>
-        <button class="btn btn-primary" id="ts-extract-btn" onclick="tsExtract()" style="display:none;margin-left:auto;gap:6px">
+        <button id="ts-back-btn" class="btn btn-ghost" onclick="tsGoBack()" style="display:none;gap:5px">
+          <svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M7 2L3 5.5 7 9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Back to Finder
+        </button>
+        <button class="btn btn-ghost" onclick="closeTradeshowScraper()">Close</button>
+        <div id="ts-extract-status" style="font-size:0.79rem;color:var(--muted);align-self:center;flex:1"></div>
+        <!-- Pagination state (shown after first run) -->
+        <div id="ts-pagination-info" style="display:none;font-size:0.76rem;color:var(--muted);align-self:center;font-family:'DM Mono',monospace"></div>
+        <button class="btn btn-ghost" id="ts-next-btn" onclick="tsExtractNext()" style="display:none;gap:5px">
+          <svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M2 5.5h7M6 2.5l3 3-3 3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Next 250
+        </button>
+        <button class="btn btn-primary" id="ts-extract-btn" onclick="tsExtract()" style="display:none;gap:6px">
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 1l1.2 3.6L11 5.5l-2.9 2.7.7 3.8L6 10.2l-2.8 1.8.7-3.8L1 5.5l3.8-.9z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>
           Extract exhibitors with AI
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Support Template Wizard Modal -->
+  <div id="support-wizard-modal" class="modal-overlay hidden">
+    <div class="modal" style="max-width:660px">
+      <div class="modal-header">
+        <div class="modal-header-text">
+          <div class="record" id="sup-wiz-title">Support Template Wizard</div>
+          <div class="contact" id="sup-wiz-subtitle">Build reply templates from real support emails</div>
+        </div>
+        <button class="modal-close" onclick="closeSupportTemplateWizard()">✕</button>
+      </div>
+
+      <div id="sup-wiz-step1">
+        <div class="modal-body" style="gap:10px;padding-bottom:0">
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <label style="font-size:0.8rem;color:var(--muted)">Browse last</label>
+            <input type="number" id="sup-wiz-limit" value="30" min="5" max="100" style="width:60px;background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:6px 8px;color:var(--text);font-family:'DM Mono',monospace;font-size:0.82rem;outline:none;text-align:center">
+            <label style="font-size:0.8rem;color:var(--muted)">emails</label>
+            <button class="btn btn-primary" onclick="supWizBrowse()" style="padding:7px 16px;font-size:0.8rem">Browse inbox</button>
+            <div id="sup-wiz-browse-status" style="font-size:0.78rem;color:var(--muted)"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center" id="sup-wiz-select-bar" style="display:none">
+            <label style="display:flex;align-items:center;gap:7px;font-size:0.78rem;color:var(--muted);cursor:pointer">
+              <input type="checkbox" id="sup-wiz-select-all" onchange="supWizToggleAll(this.checked)" style="accent-color:var(--accent);width:14px;height:14px;cursor:pointer">
+              Select all
+            </label>
+            <div id="sup-wiz-selected-count" style="font-size:0.76rem;color:var(--muted)"></div>
+          </div>
+          <div id="sup-wiz-email-list" style="max-height:300px;overflow-y:auto;display:flex;flex-direction:column;gap:4px"></div>
+        </div>
+        <div class="modal-footer">
+          <div id="sup-wiz-footer-hint" style="font-size:0.78rem;color:var(--muted)">Select support emails to build templates from.</div>
+          <button class="btn btn-primary" id="sup-wiz-build-btn" onclick="supWizStartBuild()" style="display:none;margin-left:auto">Build templates →</button>
+        </div>
+      </div>
+
+      <div id="sup-wiz-step2" style="display:none">
+        <div class="modal-body" style="gap:10px;padding-bottom:0">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div id="sup-wiz-page-label" style="font-size:0.78rem;color:var(--muted)"></div>
+            <div style="display:flex;gap:6px">
+              <button class="btn btn-ghost" id="sup-wiz-prev" onclick="supWizPage(-1)" style="padding:4px 10px;font-size:0.76rem">← Prev</button>
+              <button class="btn btn-ghost" id="sup-wiz-next" onclick="supWizPage(1)"  style="padding:4px 10px;font-size:0.76rem">Next →</button>
+            </div>
+          </div>
+          <div id="sup-wiz-email-info" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:0.76rem;color:var(--muted)"></div>
+          <details>
+            <summary style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);font-weight:500;cursor:pointer;user-select:none">Email body</summary>
+            <pre id="sup-wiz-body-text" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:0.71rem;font-family:'DM Mono',monospace;color:var(--text);white-space:pre-wrap;word-break:break-word;max-height:160px;overflow-y:auto;line-height:1.5;margin:6px 0 0"></pre>
+          </details>
+          <div id="sup-wiz-ai-status" style="display:none;font-size:0.78rem;color:var(--muted)">
+            <div class="dot spin" style="display:inline-block;margin-right:5px"></div> Groq reading email and generating template…
+          </div>
+          <div id="sup-wiz-form" style="display:none">
+            <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--accent);font-weight:500;margin-bottom:8px">⚡ AI-suggested support template</div>
+            <div class="form-grid" style="margin-bottom:10px">
+              <div class="form-group" style="margin-bottom:0">
+                <label>Template name</label>
+                <input type="text" id="sup-wiz-tmpl-name" placeholder="e.g. Login Issue, Billing Dispute">
+              </div>
+              <div class="form-group" style="margin-bottom:0">
+                <label>Trigger keywords</label>
+                <input type="text" id="sup-wiz-tmpl-keywords" placeholder="e.g. can't login, password, access">
+              </div>
+            </div>
+            <div class="form-group" style="margin-bottom:6px">
+              <label>Response template</label>
+              <textarea id="sup-wiz-tmpl-body" class="laz-draft-area" style="min-height:200px"></textarea>
+            </div>
+            <div style="font-size:0.72rem;color:var(--muted)">
+              Variables: <span class="laz-var-pill">{{customer_name}}</span> <span class="laz-var-pill">{{subject}}</span> <span class="laz-var-pill">{{my_name}}</span>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer" style="flex-wrap:wrap;gap:8px">
+          <button class="btn btn-ghost" onclick="supWizBack()">← Back</button>
+          <div style="display:flex;gap:8px;margin-left:auto;align-items:center">
+            <div id="sup-wiz-save-status" style="font-size:0.8rem;color:var(--muted)"></div>
+            <button class="btn btn-ghost" onclick="supWizSaveCurrent()" style="padding:7px 14px;font-size:0.8rem">Save this</button>
+            <button class="btn btn-primary" id="sup-wiz-save-all" onclick="supWizSaveAll()" style="padding:7px 14px;font-size:0.8rem">Save all &amp; close</button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -3345,6 +3763,8 @@ function exportCredentials() {
     leadSpecs: leadSpecs,
     // Laz Mode templates
     lazTemplates: lazTemplates,
+    // Laz Mode notes
+    lazNotes: _lazNotes,
     // Theme
     theme: localStorage.getItem('oelTheme') || 'lime',
   };
@@ -3409,6 +3829,12 @@ function importCredentials(event) {
         data.lazTemplates.forEach(t => { if (!existingIds.has(t.id)) lazTemplates.push(t); });
         saveLazTemplates();
         rebuildLazTemplateSelector();
+      }
+      // Laz Mode notes
+      if (Array.isArray(data.lazNotes) && data.lazNotes.length > 0) {
+        const existingIds = new Set(_lazNotes.map(n => n.id));
+        data.lazNotes.forEach(n => { if (!existingIds.has(n.id)) _lazNotes.push(n); });
+        saveLazNotes();
       }
 
       // Theme
@@ -4143,7 +4569,7 @@ function _pushSpec(draft) {
 // ⚡ LAZ MODE
 // ═══════════════════════════════════════════════════════════
 
-const LAZ_PASSWORD   = 'laz2025';
+const LAZ_PASSWORD   = 'lazknows';
 let lazModeUnlocked  = false;
 let lazTemplates     = [];   // {id, name, keywords, body}
 let lazEmails        = [];   // browsed emails
@@ -4186,22 +4612,34 @@ function promptLazUnlock() {
 // ── Tab nav ───────────────────────────────────────────────
 
 function lazTab(tab) {
-  ['maildesk','templates','prospect','discuss'].forEach(t => {
+  ['maildesk','templates','prospect','discuss','support'].forEach(t => {
     const el = document.getElementById(`laz-${t}`);
-    if (el) el.style.display = t === tab ? 'block' : 'none';
+    if (el) el.style.display = 'none';
   });
-  // Main action tabs — flush bottom border style
-  ['maildesk','prospect','discuss'].forEach(t => {
+  if (tab === 'support-templates') {
+    document.getElementById('laz-support').style.display = 'block';
+    const sp = document.getElementById('laz-support-templates-panel');
+    if (sp) sp.style.display = 'block';
+  } else {
+    const el = document.getElementById(`laz-${tab}`);
+    if (el) el.style.display = 'block';
+    // Hide support templates sub-panel when switching away from support
+    if (tab !== 'support') {
+      const sp = document.getElementById('laz-support-templates-panel');
+      if (sp) sp.style.display = 'none';
+    }
+  }
+  // Main action tabs
+  ['maildesk','prospect','discuss','support'].forEach(t => {
     const btn = document.getElementById(`laz-tab-${t}`);
     if (!btn) return;
-    const active = t === tab;
+    const active = t === tab || (t === 'support' && tab === 'support-templates');
     btn.style.borderColor  = active ? 'var(--accent)' : 'var(--border)';
     btn.style.borderBottom = active ? 'none' : '1px solid var(--border)';
     btn.style.background   = active ? 'var(--surface)' : 'transparent';
     btn.style.color        = active ? 'var(--accent)' : 'var(--muted)';
     btn.style.fontWeight   = active ? '500' : '400';
   });
-  // Templates config button
   const tmplBtn = document.getElementById('laz-tab-templates');
   if (tmplBtn) {
     const active = tab === 'templates';
@@ -4215,6 +4653,7 @@ function lazTab(tab) {
 
 function initLazMode() {
   loadLazTemplates();
+  loadSupportTemplates();
   lazTab('maildesk');
   const ws = document.getElementById('laz-draft-workspace');
   if (ws) ws.style.display = 'none';
@@ -5279,27 +5718,701 @@ async function discussMarkActivityDone(idx) {
   }
 }
 
-// ── Tradeshow Floor Plan Scraper ─────────────────────────────────────────────
+// ── Laz Mode Sticky Notes ─────────────────────────────────────────────────────
 
-let _tsRawText = '';
+let _lazNotes = [];
+
+function loadLazNotes() {
+  try { _lazNotes = JSON.parse(localStorage.getItem('laz_notes') || '[]'); } catch(e) { _lazNotes = []; }
+  lazUpdateNotesBadge();
+}
+
+function saveLazNotes() {
+  try { localStorage.setItem('laz_notes', JSON.stringify(_lazNotes)); } catch(e) {}
+  lazUpdateNotesBadge();
+}
+
+function lazUpdateNotesBadge() {
+  const badge = document.getElementById('laz-notes-count');
+  if (!badge) return;
+  const n = _lazNotes.filter(n => n.text && n.text.trim()).length;
+  badge.textContent   = n;
+  badge.style.display = n > 0 ? 'inline-block' : 'none';
+}
+
+function toggleLazNotes() {
+  const panel = document.getElementById('laz-notes-panel');
+  const btn   = document.getElementById('laz-notes-btn');
+  const isOpen = panel.classList.toggle('open');
+  btn.style.borderColor = isOpen ? 'var(--accent)' : 'var(--border)';
+  btn.style.color       = isOpen ? 'var(--accent)' : 'var(--muted)';
+  if (isOpen) renderLazNotes();
+}
+
+function lazAddNote() {
+  const note = { id: 'note_' + Date.now(), text: '', ts: Date.now() };
+  _lazNotes.unshift(note);
+  saveLazNotes();
+  renderLazNotes();
+  setTimeout(() => { const t = document.querySelector('.laz-note-textarea'); if (t) t.focus(); }, 50);
+}
+
+function lazDeleteNote(id) {
+  _lazNotes = _lazNotes.filter(n => n.id !== id);
+  saveLazNotes();
+  renderLazNotes();
+}
+
+function lazUpdateNote(id, text) {
+  const note = _lazNotes.find(n => n.id === id);
+  if (note) { note.text = text; note.ts = Date.now(); }
+  saveLazNotes();
+}
+
+function renderLazNotes() {
+  const list = document.getElementById('laz-notes-list');
+  if (!list) return;
+  list.innerHTML = '';
+  if (_lazNotes.length === 0) {
+    list.innerHTML = '<div style="font-size:0.78rem;color:var(--muted);padding:20px 8px;text-align:center;line-height:1.8">No notes yet.<br><strong style="color:var(--text)">+ New</strong> to add one.</div>';
+    return;
+  }
+  _lazNotes.forEach(note => {
+    const dateStr = new Date(note.ts).toLocaleDateString('en-US', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
+    const card = document.createElement('div');
+    card.className = 'laz-note-card';
+    const safeText = (note.text||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const deleteBtn = document.createElement('button');
+    deleteBtn.textContent = 'Delete';
+    deleteBtn.style.cssText = 'background:none;border:none;color:var(--danger);cursor:pointer;font-size:0.74rem;padding:0;opacity:0.6';
+    deleteBtn.onmouseover = () => deleteBtn.style.opacity = '1';
+    deleteBtn.onmouseout  = () => deleteBtn.style.opacity = '0.6';
+    deleteBtn.onclick     = () => lazDeleteNote(note.id);
+    card.innerHTML = '<textarea class="laz-note-textarea" placeholder="Type a note…">' + safeText + '</textarea><div class="laz-note-meta"><span>' + dateStr + '</span></div>';
+    card.querySelector('.laz-note-meta').appendChild(deleteBtn);
+    const ta = card.querySelector('textarea');
+    ta.addEventListener('input', () => { ta.style.height='auto'; ta.style.height=ta.scrollHeight+'px'; lazUpdateNote(note.id, ta.value); });
+    ta.addEventListener('change', () => lazUpdateNote(note.id, ta.value));
+    list.appendChild(card);
+    setTimeout(() => { ta.style.height='auto'; ta.style.height=ta.scrollHeight+'px'; }, 0);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+// 🔍 TRADESHOW FINDER
+// ═══════════════════════════════════════════════════════════
+
+let _sfShows = []; // [{name, url, exhibitorUrl, year, location, description, _status, _selected}]
+
+const SF_STATUS = {
+  pending:   { icon: '⏳', label: 'Checking…',         color: 'var(--muted)'    },
+  scrapable: { icon: '✅', label: 'Scrapable — ready',  color: 'var(--success)'  },
+  paste:     { icon: '📋', label: 'Paste required',     color: 'var(--warning)'  },
+  blocked:   { icon: '❌', label: 'Blocked / login',    color: 'var(--danger)'   },
+  unknown:   { icon: '❓', label: 'Unknown',            color: 'var(--muted)'    },
+};
+
+function openShowFinder() {
+  _sfShows = [];
+  const industry = document.getElementById('prosp-industry')?.value?.trim() || '';
+  if (industry) document.getElementById('sf-industry').value = industry;
+  document.getElementById('sf-status').textContent = '';
+  document.getElementById('sf-results').style.display = 'none';
+  document.getElementById('sf-show-list').innerHTML = '';
+  document.getElementById('sf-proceed-btn').style.display = 'none';
+  document.getElementById('sf-results-summary').textContent = '';
+  document.getElementById('show-finder-modal').classList.remove('hidden');
+}
+
+function closeShowFinder() {
+  document.getElementById('show-finder-modal').classList.add('hidden');
+}
+
+async function sfFindShows() {
+  const industry = document.getElementById('sf-industry').value.trim();
+  const region   = document.getElementById('sf-region').value.trim();
+  const year     = document.getElementById('sf-year').value.trim() || '2026';
+  const count    = parseInt(document.getElementById('sf-count').value) || 12;
+  const groqKey  = document.getElementById('gemini-key')?.value?.trim() || '';
+
+  if (!industry) {
+    document.getElementById('sf-status').style.color = 'var(--danger)';
+    document.getElementById('sf-status').textContent = 'Enter an industry first';
+    return;
+  }
+  if (!groqKey) {
+    document.getElementById('sf-status').style.color = 'var(--danger)';
+    document.getElementById('sf-status').textContent = 'No Groq key — add in Step 1';
+    return;
+  }
+
+  const btn = document.getElementById('sf-find-btn');
+  const statusEl = document.getElementById('sf-status');
+  btn.disabled = true;
+  statusEl.style.color = 'var(--muted)';
+  statusEl.innerHTML = '<div class="dot spin" style="display:inline-block;margin-right:5px"></div> Asking Groq for relevant tradeshows…';
+  document.getElementById('sf-results').style.display = 'none';
+  document.getElementById('sf-show-list').innerHTML = '';
+  document.getElementById('sf-proceed-btn').style.display = 'none';
+
+  const model = document.getElementById('gemini-model')?.value || 'llama-3.3-70b-versatile';
+
+  const regionLine = region ? `Region preference: ${region}` : 'Any region, prioritize US shows';
+  const prompt = `You are helping a sales person at an AV, staging, and event production rental company find tradeshows to prospect at.
+
+Find ${count} real tradeshows relevant to: "${industry}"
+${regionLine}
+Year: ${year}
+
+For each show, provide the MOST LIKELY direct URL to their exhibitor list page — not the homepage, but the actual page that lists exhibitors with company names. This is critical.
+
+Common exhibitor list URL patterns:
+- /exhibitors or /exhibitor-list
+- /show-floor or /floorplan
+- Static hosting like s3.goeshow.com, a2zinc.net, mapyourshow.com
+- .aspx pages like ExhibitorList.aspx
+
+Return ONLY a JSON array:
+[{
+  "name": "Full official show name",
+  "year": "${year}",
+  "location": "City, State/Country — venue name if known",
+  "dates": "e.g. April 7-10, 2026",
+  "attendance": "estimated total attendance as a number e.g. 12000, or null if unknown",
+  "exhibitor_count": "estimated number of exhibitors as a number e.g. 850, or null if unknown",
+  "audience": "2-sentence description of who attends and what they buy — be specific about job titles and purchasing power",
+  "relevance": "1-2 sentences on why this show is relevant for AV/staging/event equipment rental — what rental opportunities exist",
+  "website": "https://showwebsite.com",
+  "exhibitor_list_url": "https://most-likely-direct-url-to-exhibitor-list",
+  "platform": "one of: goeshow, a2zinc, mapyourshow, static, unknown",
+  "scrapable_guess": "yes|paste|unknown — yes=likely static HTML, paste=likely JS-rendered, unknown=unsure",
+  "frequency": "Annual / Biennial / etc",
+  "organizer": "organizing body name e.g. AVIXA, NAB, NAMM"
+}]
+
+Be specific — use real show names, real attendance figures you know. Raw JSON array only.`;
+
+  try {
+    const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${groqKey}` },
+      body: JSON.stringify({ model, max_tokens: 3500, temperature: 0.3,
+        messages: [{ role: 'user', content: prompt }]
+      }),
+      signal: AbortSignal.timeout(40000)
+    });
+    const data = await r.json();
+    let raw = data.choices?.[0]?.message?.content?.trim() || '[]';
+    raw = raw.replace(/^```(?:json)?\s*/i,'').replace(/\s*```$/,'').trim();
+    raw = raw.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g,'');
+
+    let shows = [];
+    try { shows = JSON.parse(raw); }
+    catch(e) { const m = raw.match(/\[[\s\S]+\]/); if (m) shows = JSON.parse(m[0]); }
+
+    if (!Array.isArray(shows) || !shows.length) throw new Error('No shows returned — try different criteria');
+
+    _sfShows = shows.map(s => ({ ...s, _status: 'pending', _selected: false, _fetchedText: null }));
+
+    statusEl.style.color = 'var(--muted)';
+    statusEl.innerHTML = `<div class="dot spin" style="display:inline-block;margin-right:5px"></div> Found ${_sfShows.length} shows — testing exhibitor list URLs…`;
+
+    document.getElementById('sf-results').style.display = 'block';
+    sfRenderShows();
+
+    // Test each URL in the background
+    await sfTestAllURLs();
+
+  } catch(e) {
+    statusEl.style.color = 'var(--danger)';
+    statusEl.textContent = `✗ ${e.message}`;
+  }
+  btn.disabled = false;
+}
+
+async function sfTestAllURLs() {
+  const serverUp = await pingImapServer().catch(() => false);
+  let scrapable = 0, paste = 0, blocked = 0;
+
+  const statusEl = document.getElementById('sf-status');
+
+  for (let i = 0; i < _sfShows.length; i++) {
+    const show = _sfShows[i];
+    const url  = show.exhibitor_list_url || show.website;
+    if (!url) { show._status = 'unknown'; sfUpdateShowCard(i); continue; }
+
+    // Use Groq's guess if server not running
+    if (!serverUp) {
+      show._status = show.scrapable_guess === 'yes' ? 'scrapable'
+                   : show.scrapable_guess === 'paste' ? 'paste' : 'unknown';
+      sfUpdateShowCard(i);
+      continue;
+    }
+
+    try {
+      const r = await fetch(`${IMAP_SERVER}/scrape`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url, timeout: 10 }),
+        signal: AbortSignal.timeout(15000)
+      });
+      const d = await r.json();
+
+      if (!d.ok || !d.text || d.len < 200) {
+        show._status = 'paste';
+      } else {
+        // Check if the text actually contains exhibitor-like content
+        const hasExhibitors = /booth|exhibitor|company|stand\s*\d|#\d{3}/i.test(d.text);
+        const hasCompanyList = (d.text.match(/\n/g)||[]).length > 20; // multiple lines = list
+        show._status  = (hasExhibitors || hasCompanyList) ? 'scrapable' : 'paste';
+        if (show._status === 'scrapable') show._fetchedText = d.text;
+      }
+    } catch(e) {
+      show._status = 'blocked';
+    }
+
+    sfUpdateShowCard(i);
+
+    // Running tally
+    scrapable = _sfShows.filter(s=>s._status==='scrapable').length;
+    paste     = _sfShows.filter(s=>s._status==='paste').length;
+    blocked   = _sfShows.filter(s=>s._status==='blocked').length;
+    const done = _sfShows.filter(s=>s._status!=='pending').length;
+    statusEl.innerHTML = `Testing ${done}/${_sfShows.length}… ✅ ${scrapable} scrapable · 📋 ${paste} paste-only · ❌ ${blocked} blocked`;
+    document.getElementById('sf-results-summary').textContent =
+      `✅ ${scrapable}  📋 ${paste}  ❌ ${blocked}`;
+  }
+
+  // Final status
+  scrapable = _sfShows.filter(s=>s._status==='scrapable').length;
+  paste     = _sfShows.filter(s=>s._status==='paste').length;
+  blocked   = _sfShows.filter(s=>s._status==='blocked').length;
+  statusEl.style.color = scrapable > 0 ? 'var(--success)' : 'var(--muted)';
+  statusEl.textContent = serverUp
+    ? `Done — ${scrapable} ready to auto-scrape, ${paste} need paste, ${blocked} blocked`
+    : `Done (server offline — status based on Groq's estimate). Start imap_server.py for live testing.`;
+}
+
+function sfRenderShows() {
+  const container = document.getElementById('sf-show-list');
+  container.innerHTML = '';
+  _sfShows.forEach((show, i) => {
+    const card = document.createElement('div');
+    card.id = `sf-card-${i}`;
+    card.style.cssText = 'background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;transition:border-color 0.15s';
+    card.innerHTML = sfCardHTML(show, i);
+    container.appendChild(card);
+  });
+}
+
+function sfCardHTML(show, i) {
+  const st      = SF_STATUS[show._status] || SF_STATUS.unknown;
+  const checked = show._selected;
+  const disabled = show._status === 'blocked';
+
+  // Format numbers
+  const fmtNum = n => n ? parseInt(n).toLocaleString() : null;
+  const attendance     = fmtNum(show.attendance);
+  const exhibitorCount = fmtNum(show.exhibitor_count);
+
+  // Scrapability hint color for URL
+  const urlColor = show._status === 'scrapable' ? 'var(--success)'
+                 : show._status === 'paste'     ? 'var(--warning)'
+                 : 'var(--muted)';
+
+  return `
+    <div style="display:flex;align-items:flex-start;gap:10px">
+      <input type="checkbox" ${checked?'checked':''} ${disabled?'disabled':''} 
+        style="accent-color:var(--accent);width:14px;height:14px;cursor:pointer;flex-shrink:0;margin-top:4px"
+        onchange="sfToggle(${i},this.checked)">
+      <div style="flex:1;min-width:0">
+
+        <!-- Header row -->
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:4px">
+          <div>
+            <span style="font-weight:600;font-size:0.92rem;color:var(--text)">${escHtml(show.name||'')}</span>
+            <span style="font-weight:400;color:var(--muted);font-size:0.8rem;margin-left:6px">${escHtml(show.year||'')}</span>
+            ${show.frequency ? `<span style="font-size:0.68rem;color:var(--muted);margin-left:6px;padding:1px 6px;border:1px solid var(--border);border-radius:10px">${escHtml(show.frequency)}</span>` : ''}
+          </div>
+          <span style="font-size:0.71rem;padding:2px 9px;border-radius:20px;border:1px solid ${st.color};color:${st.color};white-space:nowrap;flex-shrink:0">${st.icon} ${st.label}</span>
+        </div>
+
+        <!-- Location + dates -->
+        <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:8px;font-size:0.77rem">
+          ${show.location ? `<span style="color:var(--text)">📍 ${escHtml(show.location)}</span>` : ''}
+          ${show.dates    ? `<span style="color:var(--muted)">📅 ${escHtml(show.dates)}</span>`    : ''}
+          ${show.organizer? `<span style="color:var(--muted)">🏢 ${escHtml(show.organizer)}</span>`: ''}
+        </div>
+
+        <!-- Stats row -->
+        ${(attendance || exhibitorCount) ? `
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px">
+          ${attendance     ? `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:4px 10px;font-size:0.75rem"><span style="color:var(--muted)">Attendance</span> <strong style="color:var(--text);margin-left:4px">${attendance}</strong></div>` : ''}
+          ${exhibitorCount ? `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:4px 10px;font-size:0.75rem"><span style="color:var(--muted)">Exhibitors</span> <strong style="color:var(--accent);margin-left:4px">${exhibitorCount}</strong></div>` : ''}
+        </div>` : ''}
+
+        <!-- Audience -->
+        ${show.audience ? `<div style="font-size:0.76rem;color:var(--muted);line-height:1.5;margin-bottom:6px;padding:6px 10px;background:var(--surface2);border-left:2px solid var(--border);border-radius:0 6px 6px 0">${escHtml(show.audience)}</div>` : ''}
+
+        <!-- Rental relevance -->
+        ${show.relevance ? `<div style="font-size:0.76rem;color:var(--accent);line-height:1.5;margin-bottom:8px;padding:5px 10px;background:var(--accent-dim);border-radius:6px;border:1px solid rgba(200,240,78,0.15)">⚡ ${escHtml(show.relevance)}</div>` : ''}
+
+        <!-- URL + actions -->
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          ${show.exhibitor_list_url ? `
+            <a href="${escHtml(show.exhibitor_list_url)}" target="_blank"
+               style="font-size:0.71rem;color:${urlColor};font-family:'DM Mono',monospace;text-decoration:none;
+                      overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:280px"
+               title="${escHtml(show.exhibitor_list_url)}">
+              ${escHtml(show.exhibitor_list_url.replace(/^https?:\/\//,'').slice(0,55))}${show.exhibitor_list_url.length>58?'…':''}
+            </a>` : ''}
+          ${show._status === 'scrapable' ? `<button class="btn btn-primary" onclick="sfScrapeNow(${i})" style="padding:4px 12px;font-size:0.76rem">Scrape now →</button>` : ''}
+          ${show._status === 'paste'     ? `<button class="btn btn-ghost"   onclick="sfOpenPaste(${i})" style="padding:4px 12px;font-size:0.76rem">Paste scraper →</button>` : ''}
+          ${show._status === 'unknown'   ? `<button class="btn btn-ghost"   onclick="sfOpenPaste(${i})" style="padding:4px 12px;font-size:0.76rem">Try manually →</button>` : ''}
+          ${show.website && show.website !== show.exhibitor_list_url ? `
+            <a href="${escHtml(show.website)}" target="_blank"
+               style="font-size:0.71rem;color:var(--muted);text-decoration:none;padding:3px 8px;border:1px solid var(--border);border-radius:6px">
+              Show site ↗
+            </a>` : ''}
+        </div>
+      </div>
+    </div>`;
+}
+
+function sfUpdateShowCard(i) {
+  const card = document.getElementById(`sf-card-${i}`);
+  if (card) card.innerHTML = sfCardHTML(_sfShows[i], i);
+  sfUpdateProceedBtn();
+}
+
+function sfToggle(i, checked) {
+  _sfShows[i]._selected = checked;
+  sfUpdateProceedBtn();
+  const card = document.getElementById(`sf-card-${i}`);
+  if (card) card.style.borderColor = checked ? 'var(--accent)' : 'var(--border)';
+}
+
+function sfUpdateProceedBtn() {
+  const sel = _sfShows.filter(s => s._selected);
+  const btn = document.getElementById('sf-proceed-btn');
+  btn.style.display = sel.length > 0 ? 'inline-flex' : 'none';
+  btn.textContent = sel.length === 1
+    ? `Open in scraper →`
+    : `Open ${sel.length} shows in scraper →`;
+}
+
+function sfScrapeNow(i) {
+  const show = _sfShows[i];
+  closeShowFinder();
+  openTradeshowScraper();
+  document.getElementById('ts-url').value = show.exhibitor_list_url || '';
+  document.getElementById('ts-show-name').value = show.name || '';
+  const maxEl = document.getElementById('ts-max-exhibitors');
+  if (maxEl) maxEl.value = '1000';
+  _tsOpenedFrom = 'finder';
+  const backBtn = document.getElementById('ts-back-btn');
+  if (backBtn) backBtn.style.display = 'inline-flex';
+  tsSetMethod('url');
+  if (show._fetchedText) {
+    _tsRawText = show._fetchedText;
+    _tsOffset = 0; _tsTotalFound = 0;
+    tsShowPreview(show._fetchedText, show._fetchedText.length);
+    document.getElementById('ts-status').style.color = 'var(--success)';
+    document.getElementById('ts-status').textContent = '✓ Pre-loaded from finder — ready to extract up to 1,000 exhibitors';
+  }
+}
+
+function sfOpenPaste(i) {
+  const show = _sfShows[i];
+  closeShowFinder();
+  openTradeshowScraper();
+  document.getElementById('ts-url').value = show.exhibitor_list_url || show.website || '';
+  document.getElementById('ts-show-name').value = show.name || '';
+  const maxEl = document.getElementById('ts-max-exhibitors');
+  if (maxEl) maxEl.value = '1000';
+  _tsOpenedFrom = 'finder';
+  const backBtn = document.getElementById('ts-back-btn');
+  if (backBtn) backBtn.style.display = 'inline-flex';
+  tsSetMethod('paste');
+  document.getElementById('ts-status').style.color = 'var(--muted)';
+  document.getElementById('ts-status').textContent =
+    'Open ' + (show.exhibitor_list_url || show.website || 'the show URL') + ' in your browser → Ctrl+A → Ctrl+C → paste below';
+}
+
+function tsGoBack() {
+  closeTradeshowScraper();
+  // Re-open Show Finder with results preserved
+  document.getElementById('show-finder-modal').classList.remove('hidden');
+  if (_sfShows.length) sfRenderShows();
+}
+
+function sfProceedSelected() {
+  const selected = _sfShows.filter(s => s._selected);
+  if (!selected.length) return;
+  // If only one selected, open directly
+  if (selected.length === 1) {
+    const s = selected[0];
+    if (s._status === 'scrapable') sfScrapeNow(_sfShows.indexOf(s));
+    else sfOpenPaste(_sfShows.indexOf(s));
+    return;
+  }
+  // Multiple: open the first scrapable one, or first paste one
+  const first = selected.find(s => s._status === 'scrapable') || selected[0];
+  const idx = _sfShows.indexOf(first);
+  if (first._status === 'scrapable') sfScrapeNow(idx);
+  else sfOpenPaste(idx);
+  // Note remaining
+  if (selected.length > 1) {
+    setTimeout(() => {
+      document.getElementById('ts-status').textContent +=
+        ` · ${selected.length-1} more selected show${selected.length>2?'s':''} — return to finder for the rest`;
+    }, 500);
+  }
+}
+
+
+
+// ── Bookmarklet ───────────────────────────────────────────
+
+const BOOKMARKLET_KEY = 'oel_bookmarklet_payload';
+
+function tsInitBookmarklet() {
+  const code = `(function(){
+    var t=document.body.innerText||document.body.textContent||'';
+    t=t.replace(/[\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F]/g,'').trim();
+    if(!t){alert('No text found on this page.');return;}
+    var payload=JSON.stringify({text:t.slice(0,200000),url:location.href,title:document.title,ts:Date.now()});
+    try{localStorage.setItem('oel_bookmarklet_payload',payload);}catch(e){alert('Could not store: '+e.message);return;}
+    alert('Grabbed '+t.length.toLocaleString()+' characters from '+document.title+'\\n\\nSwitch back to OEL — it will load automatically!');
+  })();`;
+  const link = document.getElementById('ts-bookmarklet-link');
+  if (link) link.href = 'javascript:' + code.replace(/\s{2,}/g,' ').trim();
+}
+
+let _tsBookmarkletPoller = null;
+
+function tsStartBookmarkletPoll() {
+  if (_tsBookmarkletPoller) return;
+  _tsBookmarkletPoller = setInterval(() => {
+    try {
+      const raw = localStorage.getItem(BOOKMARKLET_KEY);
+      if (!raw) return;
+      const data = JSON.parse(raw);
+      if (!data.text || !data.ts) return;
+      const banner = document.getElementById('ts-bookmarklet-ready');
+      const info   = document.getElementById('ts-bookmarklet-info');
+      if (banner && info) {
+        const passes = Math.ceil(data.text.length / TS_CHUNK);
+        info.textContent = (data.title || 'Page') + ' · ' + data.text.length.toLocaleString() + ' chars · ~' + passes + ' pass' + (passes!==1?'es':'');
+        banner.style.display = 'flex';
+      }
+    } catch(e) {}
+  }, 800);
+}
+
+function tsStopBookmarkletPoll() {
+  if (_tsBookmarkletPoller) { clearInterval(_tsBookmarkletPoller); _tsBookmarkletPoller = null; }
+}
+
+function tsLoadBookmarkletData() {
+  try {
+    const raw = localStorage.getItem(BOOKMARKLET_KEY);
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    if (!data.text) return;
+    const showNameEl = document.getElementById('ts-show-name');
+    if (showNameEl && !showNameEl.value.trim() && data.title) {
+      showNameEl.value = data.title.replace(/\s*[-|·|—].*$/, '').trim().slice(0, 60);
+    }
+    _tsRawText = data.text;
+    _tsOffset = 0; _tsTotalFound = 0;
+    tsShowPreview(data.text, data.text.length);
+    document.getElementById('ts-status').style.color = 'var(--success)';
+    document.getElementById('ts-status').textContent = '✓ Loaded from bookmarklet — ' + data.text.length.toLocaleString() + ' chars from ' + (data.title || data.url || 'page');
+    document.getElementById('ts-bookmarklet-ready').style.display = 'none';
+    localStorage.removeItem(BOOKMARKLET_KEY);
+  } catch(e) {
+    document.getElementById('ts-status').style.color = 'var(--danger)';
+    document.getElementById('ts-status').textContent = '✗ ' + e.message;
+  }
+}
+
+let _tsRawText    = '';
+let _tsOffset     = 0;
+let _tsTotalFound = 0;
+let _tsOpenedFrom = null; // 'finder' | null — tracks where scraper was launched from
+const TS_CHUNK    = 26000;
+
+function tsSetMethod(method) {
+  document.getElementById('ts-section-url').style.display   = method === 'url'   ? 'block' : 'none';
+  document.getElementById('ts-section-paste').style.display = method === 'paste' ? 'block' : 'none';
+  document.getElementById('ts-method-url').style.background   = method === 'url'   ? 'var(--accent-dim)' : 'none';
+  document.getElementById('ts-method-url').style.color        = method === 'url'   ? 'var(--accent)' : 'var(--muted)';
+  document.getElementById('ts-method-paste').style.background = method === 'paste' ? 'var(--accent-dim)' : 'none';
+  document.getElementById('ts-method-paste').style.color      = method === 'paste' ? 'var(--accent)' : 'var(--muted)';
+}
+
+function tsLoadTestData() {
+  // Real static data from IAEE Expo! Expo! 2026 — s3.goeshow.com/iaee/annual/2026/exhbitor_list.cfm
+  // Confirmed fetchable as plain HTML with booth numbers + company names
+  const testText = `IAEE Expo! Expo! 2026 - Exhibitor List
+New Orleans Ernest N. Morial Convention Center
+
+Booth | Company Name
+843 | 42Chat
+1335 | 4imprint
+635 | AEX Convention Services
+807 | Airways Freight Corporation
+938 | Alma Carpets
+1411 | American Tradeshow Services
+900 | ATL Airport District CVB
+1000 | Atlanta Convention & Visitors Bureau
+1523 | Backtrack
+1519 | Bear Analytics
+819 | BodyWorks Attendee Wellbeing
+641 | Boomer Commerce
+911 | Boston Convention Marketing Center
+1112 | Bravura Technologies LLC
+1005 | Cadmium
+1313 | Captello
+1338 | Cedar Electronics
+801 | Choose Chicago
+609 | Cloud Touch
+945 | CMAC
+833 | CNTV (Convention News Television)
+937 | Connections Housing
+824 | Convention Plant Creations, Inc.
+1143 | CSI Worldwide
+841 | CTS Electrical
+803 | cvent
+904 | Discover Green Bay
+1228 | Discover Puerto Rico
+1025 | Edlen Electrical Exhibition Services
+1736 | Emerald Carpets
+1119 | eShow
+336 | ESM Pros
+427 | Event Citadel
+828 | Event Transportation Systems
+944 | EventSender
+940 | EventVu
+335 | Exhibition Services and Contractors Association
+1042 | Expo Convention Contractors Inc.
+909 | Expo Tracker LLC
+725 | EXPOCAD / ACT Inc.
+619 | Freeman
+419 | GES
+1242 | GETZ Transport Solutions
+1111 | Grit Productions and Expositions
+309 | Heritage
+220 | Imperial Events Security Services
+1125 | Inbound Video Pros
+527 | Las Vegas Convention & Visitors Authority
+829 | Louisville Tourism
+1244 | LUXX Exposition Services
+401 | Map Your Show
+409 | Maritz
+1224 | MCH Group
+627 | MCI USA
+742 | Meet Chicago Northwest
+1239 | Music City Center
+509 | New Orleans & Company
+1019 | Nth Degree/Fern
+1029 | Oklahoma City Convention Center
+751 | Paramount Convention Services
+1108 | pc/nametag
+719 | Personify A2Z Events
+1234 | Philadelphia Convention & Visitors Bureau
+901 | PMSI Promos
+733 | Popshap LLC
+645 | Production Transport
+326 | Profitable Association Inc (PAI Sales)
+1101 | Projection
+740 | Rainprotection Insurance
+906 | Reno Tahoe
+1339 | Risk Strategies Company
+903 | Rosemont Convention Bureau
+826 | RPMXPO
+811 | Shepard
+1043 | Show Ready Productions
+935 | Showcare
+851 | ShowCycle
+1124 | Smart City Networks
+741 | SourceOne Events
+744 | SourceOne Events Inc
+435 | Superior Expo Services
+1011 | Swapcard
+324 | The Deondo Company - NOOK Event Pods
+701 | The Expo Group
+934 | TMS
+501 | United Service Companies
+1100 | Valley Expo & Displays
+837 | Veal Convention Services, Inc.
+1419 | Veloxity
+319 | Visit Anaheim
+1412 | Visit Atlantic City
+1008 | Visit Austin
+535 | Visit Dallas
+805 | VISIT DENVER
+1035 | Visit Detroit
+1010 | Visit Fort Worth
+941 | Visit Hershey & Harrisburg
+519 | Visit Houston
+1334 | Visit Indy
+707 | VISIT Milwaukee
+601 | Visit Orlando
+907 | Visit Pasadena
+1004 | Visit San Antonio
+1235 | Visit Seattle
+1007 | VisitPITTSBURGH
+643 | Vista Convention Services
+1001 | Willwork Global Event Services`;
+
+  _tsRawText = testText;
+  _tsOffset = 0; _tsTotalFound = 0;
+
+  document.getElementById('ts-show-name').value = 'IAEE Expo! Expo! 2026';
+  document.getElementById('ts-status').style.color = 'var(--success)';
+  document.getElementById('ts-status').textContent = `✓ Test data loaded — 100 real exhibitors from IAEE Expo! Expo! 2026 (New Orleans)`;
+  tsShowPreview(testText, testText.length);
+  tsSetMethod('url'); // switch back to URL tab to show the preview
+}
 
 function openTradeshowScraper() {
-  _tsRawText = '';
-  document.getElementById('ts-url').value           = '';
-  document.getElementById('ts-paste-text').value    = '';
-  document.getElementById('ts-show-name').value     = '';
-  document.getElementById('ts-industry-filter').value = '';
-  document.getElementById('ts-status').textContent  = '';
-  document.getElementById('ts-status').style.color  = 'var(--muted)';
+  _tsRawText = ''; _tsOffset = 0; _tsTotalFound = 0;
+  document.getElementById('ts-url').value              = '';
+  document.getElementById('ts-paste-text').value       = '';
+  document.getElementById('ts-paste-charcount').textContent = '';
+  document.getElementById('ts-show-name').value        = '';
+  document.getElementById('ts-industry-filter').value  = '';
+  document.getElementById('ts-status').textContent     = '';
+  document.getElementById('ts-status').style.color     = 'var(--muted)';
   document.getElementById('ts-preview-section').style.display  = 'none';
   document.getElementById('ts-extract-section').style.display  = 'none';
   document.getElementById('ts-extract-btn').style.display      = 'none';
+  document.getElementById('ts-next-btn').style.display         = 'none';
+  document.getElementById('ts-pagination-info').style.display  = 'none';
   document.getElementById('ts-extract-status').textContent     = '';
+  const maxEl = document.getElementById('ts-max-exhibitors');
+  if (maxEl) maxEl.value = '250';
+  _tsOpenedFrom = null;
+  const backBtn = document.getElementById('ts-back-btn');
+  if (backBtn) backBtn.style.display = 'none';
+  tsSetMethod('paste');
+  tsInitBookmarklet();
+  tsStartBookmarkletPoll();
   document.getElementById('tradeshow-modal').classList.remove('hidden');
+
+  const ta = document.getElementById('ts-paste-text');
+  ta.oninput = () => {
+    const n = ta.value.trim().length;
+    const cc = document.getElementById('ts-paste-charcount');
+    if (cc) cc.textContent = n > 0 ? (n.toLocaleString() + ' chars · ~' + Math.ceil(n/TS_CHUNK) + ' pass' + (Math.ceil(n/TS_CHUNK)!==1?'es':'')) : '';
+  };
 }
 
 function closeTradeshowScraper() {
   document.getElementById('tradeshow-modal').classList.add('hidden');
+  tsStopBookmarkletPoll();
 }
 
 async function tsFetchURL() {
@@ -5309,12 +6422,11 @@ async function tsFetchURL() {
     document.getElementById('ts-status').textContent = 'Enter a URL first';
     return;
   }
-  const btn      = document.getElementById('ts-fetch-btn');
+  const btn = document.getElementById('ts-fetch-btn');
   const statusEl = document.getElementById('ts-status');
-  btn.disabled   = true;
+  btn.disabled = true;
   statusEl.style.color = 'var(--muted)';
-  statusEl.innerHTML   = '<div class="dot spin" style="display:inline-block;margin-right:5px"></div> Fetching page via local server…';
-
+  statusEl.innerHTML = '<div class="dot spin" style="display:inline-block;margin-right:5px"></div> Fetching page via local server…';
   const serverUp = await pingImapServer();
   if (!serverUp) {
     btn.disabled = false;
@@ -5322,27 +6434,25 @@ async function tsFetchURL() {
     statusEl.textContent = '✗ imap_server.py not running — start it first';
     return;
   }
-
   try {
     const r = await fetch(`${IMAP_SERVER}/scrape`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ url, timeout: 20 }),
       signal: AbortSignal.timeout(30000)
     });
     const data = await r.json();
     if (!data.ok || !data.text) {
-      // Server fetch failed — prompt paste fallback
       statusEl.style.color = 'var(--warning)';
-      statusEl.textContent = `⚠ Could not fetch automatically (${data.error || 'page may be JavaScript-rendered'}) — use the paste option below.`;
-      document.getElementById('ts-paste-section').open = true;
+      statusEl.textContent = `⚠ Page is JavaScript-rendered — auto-fetch got no exhibitor data. Use the Paste Text method.`;
+      tsSetMethod('paste');
       btn.disabled = false;
       return;
     }
-    _tsRawText = data.text;
+    _tsRawText = data.text; _tsOffset = 0; _tsTotalFound = 0;
     tsShowPreview(data.text, data.len);
+    const passes = Math.ceil(data.len / TS_CHUNK);
     statusEl.style.color = 'var(--success)';
-    statusEl.textContent = `✓ Page fetched — ${data.len.toLocaleString()} characters of content`;
+    statusEl.textContent = `✓ ${data.len.toLocaleString()} characters fetched · ${passes} extraction pass${passes !== 1 ? 'es' : ''} needed`;
   } catch(e) {
     statusEl.style.color = 'var(--danger)';
     statusEl.textContent = `✗ ${e.message}`;
@@ -5357,35 +6467,42 @@ function tsUsePaste() {
     document.getElementById('ts-status').textContent = 'Nothing pasted yet';
     return;
   }
-  // Light HTML strip if it looks like source
   let clean = text;
   if (text.includes('<html') || text.includes('<!DOCTYPE')) {
     clean = text
       .replace(/<(style|script)[^>]*>[\s\S]*?<\/\1>/gi, '')
       .replace(/<[^>]+>/g, ' ')
-      .replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>')
+      .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
       .replace(/\s{3,}/g, '\n').trim();
   }
-  _tsRawText = clean.slice(0, 40000);
+  _tsRawText = clean.slice(0, 200000);
+  _tsOffset = 0; _tsTotalFound = 0;
   tsShowPreview(_tsRawText, _tsRawText.length);
+  const passes = Math.ceil(_tsRawText.length / TS_CHUNK);
   document.getElementById('ts-status').style.color = 'var(--success)';
-  document.getElementById('ts-status').textContent = `✓ Content loaded — ${_tsRawText.length.toLocaleString()} characters`;
+  document.getElementById('ts-status').textContent = `✓ ${_tsRawText.length.toLocaleString()} characters loaded · ${passes} pass${passes !== 1 ? 'es' : ''} to cover all`;
 }
 
 function tsShowPreview(text, len) {
-  document.getElementById('ts-preview').textContent    = text.slice(0, 1200) + (text.length > 1200 ? '\n\n[…truncated for preview…]' : '');
-  document.getElementById('ts-preview-len').textContent = `${len.toLocaleString()} total characters · Groq will process up to 30,000`;
-  document.getElementById('ts-preview-section').style.display  = 'block';
-  document.getElementById('ts-extract-section').style.display  = 'block';
-  document.getElementById('ts-extract-btn').style.display      = 'inline-flex';
+  document.getElementById('ts-preview').textContent = text.slice(0, 1200) + (text.length > 1200 ? '\n\n[…truncated for preview…]' : '');
+  const passes = Math.ceil(len / TS_CHUNK);
+  document.getElementById('ts-preview-len').textContent = `${len.toLocaleString()} characters · ${passes} Groq pass${passes !== 1 ? 'es' : ''} of ~250 exhibitors each`;
+  document.getElementById('ts-preview-section').style.display = 'block';
+  document.getElementById('ts-extract-section').style.display = 'block';
+  document.getElementById('ts-extract-btn').style.display = 'inline-flex';
+  document.getElementById('ts-extract-btn').textContent = '⚡ Extract first 250';
 }
 
-async function tsExtract() {
+async function tsExtract() { await tsRunExtraction(false); }
+async function tsExtractNext() { await tsRunExtraction(true); }
+
+async function tsRunExtraction(isNext) {
   if (!_tsRawText) {
     document.getElementById('ts-extract-status').textContent = 'Fetch or paste content first';
     return;
   }
-  const groqKey  = document.getElementById('gemini-key')?.value?.trim() || '';
+  const groqKey = document.getElementById('gemini-key')?.value?.trim() || '';
   if (!groqKey) {
     document.getElementById('ts-extract-status').style.color = 'var(--danger)';
     document.getElementById('ts-extract-status').textContent = 'No Groq key — add in Step 1';
@@ -5394,7 +6511,6 @@ async function tsExtract() {
 
   const showName       = document.getElementById('ts-show-name').value.trim();
   const industryFilter = document.getElementById('ts-industry-filter').value.trim();
-  const wantCompany    = document.getElementById('ts-ext-company').checked;
   const wantBooth      = document.getElementById('ts-ext-booth').checked;
   const wantContact    = document.getElementById('ts-ext-contact').checked;
   const wantEmail      = document.getElementById('ts-ext-email').checked;
@@ -5402,98 +6518,206 @@ async function tsExtract() {
   const wantWebsite    = document.getElementById('ts-ext-website').checked;
   const model          = document.getElementById('gemini-model')?.value || 'llama-3.3-70b-versatile';
 
-  const btn      = document.getElementById('ts-extract-btn');
-  const statusEl = document.getElementById('ts-extract-status');
-  btn.disabled   = true;
+  const extractBtn = document.getElementById('ts-extract-btn');
+  const nextBtn    = document.getElementById('ts-next-btn');
+  const statusEl   = document.getElementById('ts-extract-status');
+  extractBtn.disabled = true;
+  nextBtn.disabled    = true;
   statusEl.style.color = 'var(--muted)';
-  statusEl.innerHTML   = '<div class="dot spin" style="display:inline-block;margin-right:5px"></div> Groq extracting exhibitors…';
+
+  const chunk     = _tsRawText.slice(_tsOffset, _tsOffset + TS_CHUNK);
+  const remaining = _tsRawText.length - _tsOffset - chunk.length;
+  const passNum   = Math.floor(_tsOffset / TS_CHUNK) + 1;
+  const totalPass = Math.ceil(_tsRawText.length / TS_CHUNK);
+
+  statusEl.innerHTML = `<div class="dot spin" style="display:inline-block;margin-right:5px"></div> Pass ${passNum} of ${totalPass} — extracting exhibitors…`;
 
   const fields = [
-    wantCompany ? '"company": "company name"'    : null,
-    wantBooth   ? '"booth": "booth number or empty string"' : null,
-    wantContact ? '"contact": "contact person name or empty string"' : null,
-    wantEmail   ? '"email": "email address or empty string"'  : null,
-    wantPhone   ? '"phone": "phone number or empty string"'   : null,
-    wantWebsite ? '"website": "website URL or empty string"'  : null,
-    '"notes": "one sentence about what they do — useful for rental sales context"',
+    '"company": "exact company name as listed"',
+    wantBooth   ? '"booth": "booth number or empty string"'    : null,
+    wantContact ? '"contact": "contact person name or empty"'  : null,
+    wantEmail   ? '"email": "email address or empty string"'   : null,
+    wantPhone   ? '"phone": "phone number or empty string"'    : null,
+    wantWebsite ? '"website": "website URL or empty string"'   : null,
+    '"description": "one sentence: what this company does"',
   ].filter(Boolean).join(',\n    ');
 
-  const prompt = `You are extracting exhibitor data from a tradeshow floor plan or exhibitor list page.
+  const prompt = `You are extracting exhibitor data from a tradeshow exhibitor list.
 ${showName ? `Event: ${showName}` : ''}
-${industryFilter ? `Only include exhibitors related to: ${industryFilter}` : 'Include all exhibitors.'}
+${industryFilter ? `Focus on exhibitors related to: ${industryFilter}` : 'Include every exhibitor.'}
+${isNext ? 'NOTE: Continuation pass — extract all companies found even if text starts mid-list.' : ''}
 
-From the text below, extract every distinct exhibitor/company you can find.
-Return ONLY a JSON array where each item has these fields:
+Extract EVERY distinct company from the text. Do not skip any.
+Return ONLY a raw JSON array, each item:
 {
   ${fields}
 }
+Empty string for unavailable fields. Do NOT fabricate contact details.
+Raw JSON array only — no markdown, no preamble.
 
-If a field is not available leave it as an empty string. Do not fabricate data.
-Return raw JSON array only — no markdown, no explanation.
-Extract as many exhibitors as you can find (aim for completeness over speed).
-
-TEXT TO PARSE:
-${_tsRawText.slice(0, 28000)}`;
+TEXT:
+${chunk}`;
 
   try {
     const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${groqKey}` },
-      body: JSON.stringify({
-        model, max_tokens: 4000, temperature: 0.1,
+      body: JSON.stringify({ model, max_tokens: 8000, temperature: 0.1,
         messages: [{ role: 'user', content: prompt }]
       }),
       signal: AbortSignal.timeout(60000)
     });
-    const data  = await r.json();
-    let   raw   = data.choices?.[0]?.message?.content?.trim() || '[]';
-    raw = raw.replace(/^```(?:json)?\s*/i,'').replace(/\s*```$/,'').trim();
+    const data = await r.json();
+    let raw = data.choices?.[0]?.message?.content?.trim() || '[]';
+    raw = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
     raw = raw.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '');
 
     let exhibitors = [];
     try { exhibitors = JSON.parse(raw); }
-    catch(e) { const m = raw.match(/\[[\s\S]+\]/); if (m) exhibitors = JSON.parse(m[0]); }
+    catch(e) {
+      // Try extracting complete array
+      const m = raw.match(/\[[\s\S]+\]/);
+      if (m) {
+        try { exhibitors = JSON.parse(m[0]); } catch(e2) {}
+      }
+      // If still failed, Groq truncated mid-array — salvage complete objects
+      if (!exhibitors.length) {
+        const objs = [...raw.matchAll(/\{[^{}]+\}/g)];
+        objs.forEach(o => { try { exhibitors.push(JSON.parse(o[0])); } catch(e3) {} });
+      }
+    }
+    if (!Array.isArray(exhibitors)) exhibitors = [];
 
-    if (!Array.isArray(exhibitors) || exhibitors.length === 0) throw new Error('No exhibitors extracted — try pasting the page text manually');
+    // Deduplicate by company name against existing
+    const existingCos = new Set(_prospects.map(p => (p.company || '').toLowerCase().trim()));
+    const newOnes = exhibitors.filter(ex => ex.company && !existingCos.has(ex.company.toLowerCase().trim()));
 
-    // Merge into prospect list
-    const newProspects = exhibitors.map(ex => ({
-      name:      ex.contact || '',
-      title:     'Exhibitor Contact',
-      company:   ex.company || '',
-      email:     ex.email   || '',
-      phone:     ex.phone   || '',
-      location:  ex.booth ? `Booth ${ex.booth}` : '',
-      website:   ex.website || '',
-      notes:     ex.notes   || `Exhibitor at ${showName || 'tradeshow'}`,
-      _selected: false, _pushed: false, _dismissed: false,
-      _source:   'tradeshow',
+    const newProspects = newOnes.map(ex => ({
+      name:          ex.contact     || '',
+      title:         'Exhibitor Contact',
+      company:       ex.company     || '',
+      email:         ex.email       || '',
+      phone:         ex.phone       || '',
+      location:      ex.booth       ? `Booth ${ex.booth}` : '',
+      website:       ex.website     || '',
+      notes:         ex.description || `Exhibitor at ${showName || 'tradeshow'}`,
+      _selected:     false, _pushed: false, _dismissed: false,
+      _source:       'tradeshow',
+      _needsEnrich:  !ex.email && !ex.contact,
     }));
 
-    // Append to existing prospects (or replace — user's choice)
-    const existing = _prospects.filter(p => !p._dismissed).length;
-    let merged = false;
-    if (existing > 0) {
-      merged = confirm(`You have ${existing} existing prospects. Add ${newProspects.length} tradeshow exhibitors to the list?\n\nOK = Add to list\nCancel = Replace list`);
-      if (merged) _prospects = [..._prospects, ...newProspects];
-      else        _prospects = newProspects;
-    } else {
-      _prospects = newProspects;
+    _prospects    = [..._prospects, ...newProspects];
+    _tsTotalFound += newProspects.length;
+    _tsOffset     += chunk.length;
+
+    const hasMore = _tsOffset < _tsRawText.length;
+
+    // Update pagination info
+    const paginfoEl = document.getElementById('ts-pagination-info');
+    paginfoEl.textContent = `Pass ${passNum}/${totalPass} · ${_tsTotalFound} exhibitors captured`;
+    paginfoEl.style.display = 'block';
+
+    // Enrich company-only records
+    const needsEnrich = _prospects.filter(p => p._needsEnrich && p.company);
+    if (needsEnrich.length > 0) {
+      statusEl.innerHTML = `<div class="dot spin" style="display:inline-block;margin-right:5px"></div> Enriching ${needsEnrich.length} company-only records with AI…`;
+      await tsEnrichBatch(needsEnrich, showName, groqKey, model);
     }
 
-    closeTradeshowScraper();
+    statusEl.style.color = 'var(--success)';
+    statusEl.textContent = `✓ Pass ${passNum} done · ${newProspects.length} new · ${_tsTotalFound} total${hasMore ? ` · ${Math.ceil(remaining / TS_CHUNK)} pass${Math.ceil(remaining/TS_CHUNK)!==1?'es':''} remaining` : ' · All content processed ✓'}`;
+
+    extractBtn.disabled = false;
+    nextBtn.disabled    = false;
+
+    const maxExhibitors = parseInt(document.getElementById('ts-max-exhibitors')?.value || '250');
+    const hitMax = maxExhibitors > 0 && _tsTotalFound >= maxExhibitors;
+    const shouldContinue = hasMore && !hitMax;
+
+    // Always update the prospect panel immediately after each pass
     lazTab('prospect');
     renderProspects();
     document.getElementById('prosp-export-btn').style.display = 'inline-flex';
+    document.getElementById('prosp-export-csv-btn').style.display = 'inline-flex';
+    if (_sfShows.length > 0) {
+      document.getElementById('prosp-reopen-finder-btn').style.display = 'inline-flex';
+    }
     document.getElementById('prosp-status').style.color = 'var(--success)';
-    document.getElementById('prosp-status').textContent = `✓ ${newProspects.length} exhibitors extracted from ${showName || 'tradeshow'}`;
+    document.getElementById('prosp-status').textContent = `✓ ${_tsTotalFound} exhibitors from ${showName || 'tradeshow'}`;
+
+    if (shouldContinue) {
+      nextBtn.style.display    = 'inline-flex';
+      nextBtn.textContent      = `Next 250 (pass ${passNum + 1}/${totalPass}) →`;
+      extractBtn.style.display = 'none';
+
+      // Auto-continue if max is set above 250 (multi-pass mode)
+      if (maxExhibitors !== 250) {
+        statusEl.innerHTML = `✓ Pass ${passNum} done · ${_tsTotalFound} captured · <span style="color:var(--accent)">auto-continuing…</span>`;
+        setTimeout(() => tsRunExtraction(true), 800);
+        return; // don't re-enable buttons yet
+      }
+    } else {
+      nextBtn.style.display    = 'none';
+      extractBtn.style.display = 'none';
+      if (hitMax) {
+        statusEl.textContent += ` · Limit of ${maxExhibitors} reached`;
+      }
+      setTimeout(() => closeTradeshowScraper(), 1500);
+    }
 
   } catch(e) {
     statusEl.style.color = 'var(--danger)';
     statusEl.textContent = `✗ ${e.message}`;
-    btn.disabled = false;
+    extractBtn.disabled = false;
+    nextBtn.disabled    = false;
   }
 }
+
+async function tsEnrichBatch(needsEnrich, showName, groqKey, model) {
+  const BATCH = 30;
+  for (let i = 0; i < needsEnrich.length; i += BATCH) {
+    const batch = needsEnrich.slice(i, i + BATCH);
+    const names = batch.map((p, idx) => `${idx + 1}. ${p.company}`).join('\n');
+
+    const prompt = `You are helping build a tradeshow exhibitor outreach list for ${showName || 'a tradeshow'}.
+For each company below, infer the most likely decision-maker contact.
+Return ONLY a JSON array of exactly ${batch.length} objects (same order):
+[{"contact":"Full Name","email":"realistic@email.com","title":"Job Title"}, ...]
+Base email on company name pattern. Use realistic titles (Event Manager, Marketing Director, Production Coordinator, etc).
+Raw JSON only.
+
+COMPANIES:
+${names}`;
+
+    try {
+      const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${groqKey}` },
+        body: JSON.stringify({ model, max_tokens: 1500, temperature: 0.7,
+          messages: [{ role: 'user', content: prompt }]
+        }),
+        signal: AbortSignal.timeout(30000)
+      });
+      const data = await r.json();
+      let raw = data.choices?.[0]?.message?.content?.trim() || '[]';
+      raw = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+      let enriched = [];
+      try { enriched = JSON.parse(raw); }
+      catch(e) { const m = raw.match(/\[[\s\S]+\]/); if (m) enriched = JSON.parse(m[0]); }
+      if (Array.isArray(enriched)) {
+        batch.forEach((p, idx) => {
+          const e = enriched[idx];
+          if (!e) return;
+          if (!p.name  && e.contact) p.name  = e.contact;
+          if (!p.email && e.email)   p.email  = e.email;
+          if (!p.title && e.title)   p.title  = e.title;
+          p._needsEnrich = false;
+        });
+      }
+    } catch(e) { /* enrichment is best-effort */ }
+  }
+}
+
 
 let _prospects = [];  // [{name,title,company,email,phone,location,notes,_selected,_pushed,_dismissed}]
 
@@ -5583,6 +6807,7 @@ Return raw JSON array only — no markdown, no explanation, no wrapper object.`;
     statusEl.style.color = 'var(--success)';
     statusEl.textContent = `✓ ${_prospects.length} prospects generated`;
     document.getElementById('prosp-export-btn').style.display = 'inline-flex';
+    document.getElementById('prosp-export-csv-btn').style.display = 'inline-flex';
 
   } catch(e) {
     statusEl.style.color = 'var(--danger)';
@@ -5595,7 +6820,14 @@ function renderProspects() {
   const container = document.getElementById('prosp-results');
   container.innerHTML = '';
   const active = _prospects.filter(p => !p._dismissed);
-  if (!active.length) { container.innerHTML = '<div style="font-size:0.8rem;color:var(--muted);padding:10px 0">No active prospects.</div>'; return; }
+  if (!active.length) {
+    container.innerHTML = '<div style="font-size:0.8rem;color:var(--muted);padding:10px 0">No active prospects.</div>';
+    document.getElementById('prosp-export-btn').style.display = 'none';
+    document.getElementById('prosp-export-csv-btn').style.display = 'none';
+    return;
+  }
+  document.getElementById('prosp-export-btn').style.display = 'inline-flex';
+  document.getElementById('prosp-export-csv-btn').style.display = 'inline-flex';
 
   _prospects.forEach((p, idx) => {
     if (p._dismissed) return;
@@ -5757,18 +6989,6 @@ function prospGetAssignUser() {
   return odooUid;
 }
 
-function prospExportCSV() {
-  const active = _prospects.filter(p => !p._dismissed);
-  if (!active.length) return;
-  const headers = ['Name','Title','Company','Email','Phone','Location','Notes'];
-  const rows = active.map(p => [p.name,p.title,p.company,p.email,p.phone,p.location,p.notes].map(v=>`"${(v||'').replace(/"/g,'""')}"`).join(','));
-  const csv = [headers.join(','), ...rows].join('\n');
-  const blob = new Blob([csv], { type:'text/csv' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `prospects-${new Date().toISOString().split('T')[0]}.csv`;
-  a.click();
-}
 
 async function fetchLeads() {
   if (leadSpecs.length === 0) {
@@ -6015,6 +7235,13 @@ function renderLeadCards() {
 
   if (pendingLeads.length === 0) { section.style.display = 'none'; return; }
   section.style.display = 'block';
+
+  // Show export buttons
+  const hasLeads = pendingLeads.filter(l => !l.error).length > 0;
+  const xlsxBtn = document.getElementById('leads-export-xlsx-btn');
+  const csvBtn  = document.getElementById('leads-export-csv-btn');
+  if (xlsxBtn) xlsxBtn.style.display = hasLeads ? 'inline-flex' : 'none';
+  if (csvBtn)  csvBtn.style.display  = hasLeads ? 'inline-flex' : 'none';
 
   // Batch action bar (shows when any card is checked)
   const batchBar = document.createElement('div');
@@ -6864,7 +8091,668 @@ function openAbout() {
   document.addEventListener('keydown', _readmeEsc);
 }
 
-// ─── Quick Nav Palette ────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════
+// 🔧 TECH SUPPORT
+// ═══════════════════════════════════════════════════════════
+
+const SUPPORT_PERSONA = `You are a friendly, patient, and highly competent technical support specialist for a rental company. You handle questions about equipment, rentals, billing, portal access, accounts, and general how-to questions.
+
+Your response style:
+- Always acknowledge the issue first in one sentence before jumping to solutions
+- Use numbered steps for procedural instructions — never use bullet points for steps
+- Be specific and clear — avoid vague instructions like "check your settings"
+- If you don't know the exact answer, give the best general guidance and suggest they contact you directly
+- Sign off with first name only
+- Never use corporate filler phrases like "I hope this email finds you well"
+- Keep it concise — solve the problem, done`;
+
+const SUPPORT_ISSUE_TYPES = {
+  billing:    { label: '💳 Billing',      color: 'var(--warning)'  },
+  access:     { label: '🔐 Access/Login', color: 'var(--danger)'   },
+  howto:      { label: '❓ How-To',       color: 'var(--accent)'   },
+  equipment:  { label: '🔧 Equipment',    color: '#60a5fa'          },
+  complaint:  { label: '⚠ Complaint',    color: 'var(--danger)'   },
+  general:    { label: '💬 General',      color: 'var(--muted)'    },
+};
+
+let _supportTemplates = [];
+let _supportEmails    = [];
+let _supportDrafts    = [];
+let _supportDraftPage = 0;
+let _supportCurrentEmail = null;
+
+// ── Support templates storage ─────────────────────────────
+
+function saveSupportTemplates() {
+  try { localStorage.setItem('oel_support_templates', JSON.stringify(_supportTemplates)); } catch(e) {}
+}
+
+function loadSupportTemplates() {
+  try {
+    const r = localStorage.getItem('oel_support_templates');
+    if (r) _supportTemplates = JSON.parse(r);
+  } catch(e) { _supportTemplates = []; }
+  rebuildSupportTemplateSelector();
+}
+
+function rebuildSupportTemplateSelector() {
+  const sel = document.getElementById('support-tmpl-selector');
+  if (!sel) return;
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">— Select a support template —</option>';
+  _supportTemplates.forEach((t, i) => {
+    const opt = document.createElement('option');
+    opt.value = i; opt.textContent = t.name;
+    sel.appendChild(opt);
+  });
+  sel.value = cur;
+  // Also rebuild chips in workspace
+  supportRenderTemplateChips();
+}
+
+function supportRenderTemplateChips() {
+  const chipsEl = document.getElementById('support-template-chips');
+  if (!chipsEl) return;
+  chipsEl.innerHTML = '';
+  _supportTemplates.forEach(t => {
+    const chip = document.createElement('button');
+    chip.className = 'laz-template-chip';
+    chip.textContent = t.name;
+    chip.onclick = () => supportApplyTemplate(t);
+    chipsEl.appendChild(chip);
+  });
+  if (!_supportTemplates.length) {
+    chipsEl.innerHTML = '<span style="font-size:0.74rem;color:var(--muted)">No templates — use wizard above to create some</span>';
+  }
+}
+
+function supportLoadTemplate() {
+  const idx = parseInt(document.getElementById('support-tmpl-selector').value);
+  const editor = document.getElementById('support-tmpl-editor');
+  if (isNaN(idx)) { editor.style.display = 'none'; return; }
+  const t = _supportTemplates[idx];
+  if (!t) return;
+  document.getElementById('support-tmpl-name').value     = t.name     || '';
+  document.getElementById('support-tmpl-keywords').value = t.keywords || '';
+  document.getElementById('support-tmpl-body').value     = t.body     || '';
+  document.getElementById('support-tmpl-status').textContent = '';
+  editor.style.display = 'block';
+}
+
+function supportNewTemplate() {
+  _supportTemplates.push({ id: `stmpl_${Date.now()}`, name: 'New Template', keywords: '', body: '' });
+  saveSupportTemplates();
+  rebuildSupportTemplateSelector();
+  document.getElementById('support-tmpl-selector').value = _supportTemplates.length - 1;
+  supportLoadTemplate();
+}
+
+function supportSaveTemplate() {
+  const idx = parseInt(document.getElementById('support-tmpl-selector').value);
+  if (isNaN(idx) || !_supportTemplates[idx]) return;
+  _supportTemplates[idx].name     = document.getElementById('support-tmpl-name').value.trim() || 'Untitled';
+  _supportTemplates[idx].keywords = document.getElementById('support-tmpl-keywords').value.trim();
+  _supportTemplates[idx].body     = document.getElementById('support-tmpl-body').value;
+  saveSupportTemplates();
+  rebuildSupportTemplateSelector();
+  document.getElementById('support-tmpl-status').style.color = 'var(--success)';
+  document.getElementById('support-tmpl-status').textContent = '✓ Saved';
+}
+
+function supportDeleteTemplate() {
+  const idx = parseInt(document.getElementById('support-tmpl-selector').value);
+  if (isNaN(idx)) return;
+  if (!confirm(`Delete "${_supportTemplates[idx]?.name}"?`)) return;
+  _supportTemplates.splice(idx, 1);
+  saveSupportTemplates();
+  rebuildSupportTemplateSelector();
+  document.getElementById('support-tmpl-editor').style.display = 'none';
+}
+
+function supportMatchTemplate(text) {
+  if (!_supportTemplates.length) return null;
+  const lower = text.toLowerCase();
+  let best = null, bestScore = 0;
+  _supportTemplates.forEach(t => {
+    const keywords = (t.keywords || '').split(',').map(k => k.trim().toLowerCase()).filter(Boolean);
+    const score = keywords.filter(k => lower.includes(k)).length;
+    if (score > bestScore) { bestScore = score; best = t; }
+  });
+  return bestScore > 0 ? best : null;
+}
+
+function supportApplyTemplate(tmpl) {
+  if (!_supportCurrentEmail) return;
+  const filled = lazFillVariables(tmpl.body, _supportCurrentEmail);
+  document.getElementById('support-draft-body').value = filled;
+  document.querySelectorAll('#support-template-chips .laz-template-chip').forEach(c => {
+    c.classList.toggle('active', c.textContent === tmpl.name);
+  });
+}
+
+// ── Scan inbox ────────────────────────────────────────────
+
+async function supportScan() {
+  const btn      = document.getElementById('support-scan-btn');
+  const statusEl = document.getElementById('support-scan-status');
+  const listEl   = document.getElementById('support-email-list');
+  const limit    = parseInt(document.getElementById('support-scan-limit').value) || 30;
+
+  btn.disabled = true;
+  statusEl.innerHTML = '<div class="dot spin" style="display:inline-block;margin-right:5px"></div> Scanning…';
+  listEl.innerHTML = '';
+  _supportEmails = [];
+  document.getElementById('support-draft-btn-wrap').style.display = 'none';
+  document.getElementById('support-draft-workspace').style.display = 'none';
+
+  const serverUp = await pingImapServer();
+  if (!serverUp) {
+    btn.disabled = false;
+    statusEl.style.color = 'var(--danger)';
+    statusEl.textContent = '✗ imap_server.py not running';
+    return;
+  }
+
+  try {
+    const r = await fetch(`${IMAP_SERVER}/browse`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ config: getImapConfig(), limit }),
+      signal: AbortSignal.timeout(30000)
+    });
+    const data = await r.json();
+    if (data.error) throw new Error(data.error);
+    _supportEmails = data.emails;
+
+    statusEl.style.color = 'var(--muted)';
+    statusEl.textContent = `${data.emails.length} emails — check the ones that need support replies`;
+
+    data.emails.forEach((em, i) => {
+      const row = document.createElement('div');
+      row.className = 'laz-email-row';
+      row.innerHTML = `
+        <input type="checkbox" data-idx="${i}" style="accent-color:var(--accent);width:14px;height:14px;cursor:pointer;flex-shrink:0;margin-top:2px" onchange="supportToggleEmail(this)">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:0.82rem;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(em.subject || '(no subject)')}</div>
+          <div style="font-size:0.73rem;color:var(--muted)">${escHtml(em.sender_email)} · ${escHtml(em.date)}</div>
+        </div>`;
+      row.onclick = e => { if (e.target.type !== 'checkbox') { const cb = row.querySelector('input'); cb.checked = !cb.checked; supportToggleEmail(cb); }};
+      listEl.appendChild(row);
+    });
+  } catch(e) {
+    statusEl.style.color = 'var(--danger)';
+    statusEl.textContent = `✗ ${e.message}`;
+  }
+  btn.disabled = false;
+}
+
+function supportToggleEmail(cb) {
+  const idx = parseInt(cb.dataset.idx);
+  if (_supportEmails[idx]) _supportEmails[idx]._selected = cb.checked;
+  const row = cb.closest('.laz-email-row');
+  if (row) row.classList.toggle('laz-selected', cb.checked);
+  const anySelected = _supportEmails.some(e => e._selected);
+  document.getElementById('support-draft-btn-wrap').style.display = anySelected ? 'block' : 'none';
+}
+
+// ── Generate support draft ────────────────────────────────
+
+async function supportDraftSelected() {
+  const selected = _supportEmails.filter(e => e._selected);
+  if (!selected.length) return;
+
+  const btn = document.getElementById('support-draft-btn-wrap').querySelector('button');
+  const statusEl = document.getElementById('support-scan-status');
+  btn.disabled = true; btn.textContent = '⚡ Drafting…';
+  _supportDrafts = []; _supportDraftPage = 0;
+
+  for (let i = 0; i < selected.length; i++) {
+    const em = selected[i];
+    statusEl.textContent = `Drafting ${i+1} of ${selected.length}: ${em.subject}…`;
+
+    // Fetch body
+    if (!em.body) {
+      try {
+        const r = await fetch(`${IMAP_SERVER}/body`, {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ config: getImapConfig(), uid: em.uid }),
+          signal: AbortSignal.timeout(20000)
+        });
+        const d = await r.json();
+        em.body = d.body || '';
+      } catch(e) { em.body = ''; }
+    }
+
+    const draft = await supportGenerateDraft(em, em.body);
+    _supportDrafts.push(draft);
+  }
+
+  btn.disabled = false; btn.textContent = '⚡ Draft replies';
+  statusEl.textContent = `${_supportDrafts.length} draft${_supportDrafts.length!==1?'s':''} ready`;
+  document.getElementById('support-draft-workspace').style.display = 'block';
+  loadSupportTemplates();
+  supportRenderWorkspacePage();
+}
+
+async function supportGenerateDraft(em, body) {
+  const groqKey = document.getElementById('gemini-key')?.value?.trim() || '';
+  const model   = document.getElementById('gemini-model')?.value || 'llama-3.3-70b-versatile';
+  const tmpl    = supportMatchTemplate((em.subject||'') + ' ' + body);
+
+  const cleanBody = (body||'').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g,'')
+    .replace(/\r\n/g,'\n').replace(/\r/g,'\n').slice(0,4000);
+
+  const prompt = `${SUPPORT_PERSONA}
+
+Support email received:
+FROM: ${em.sender}
+SUBJECT: ${em.subject}
+BODY:
+${cleanBody}
+
+${tmpl ? `Use this template as a starting point:\n${tmpl.body}\n` : ''}
+
+Return ONLY a JSON object:
+{
+  "issue_type": "one of: billing, access, howto, equipment, complaint, general",
+  "bullets": ["Key issue 1", "Key issue 2"],
+  "subject": "Re: subject line",
+  "draft": "Full support reply. Use numbered steps for any instructions. Be specific and helpful."
+}
+Raw JSON only — no markdown.`;
+
+  try {
+    const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${groqKey}`},
+      body: JSON.stringify({ model, max_tokens:900, temperature:0.4,
+        messages:[{role:'user',content:prompt}]
+      }),
+      signal: AbortSignal.timeout(30000)
+    });
+    const data = await r.json();
+    let raw = data.choices?.[0]?.message?.content?.trim() || '{}';
+    raw = raw.replace(/^```(?:json)?\s*/i,'').replace(/\s*```$/,'').trim();
+    raw = raw.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g,'');
+    let parsed = {};
+    try { parsed = JSON.parse(raw); }
+    catch(e) {
+      const sm = raw.match(/"subject"\s*:\s*"([^"]+)"/);
+      const dm = raw.match(/"draft"\s*:\s*"([\s\S]+?)(?:"\s*}|",\s*")/);
+      parsed = { subject: sm?.[1]||`Re: ${em.subject}`, draft: dm?.[1]?.replace(/\\n/g,'\n')||'', issue_type:'general', bullets:[] };
+    }
+    return {
+      email: em, body,
+      issue_type: parsed.issue_type || 'general',
+      bullets:    Array.isArray(parsed.bullets) ? parsed.bullets : [],
+      subject:    parsed.subject || `Re: ${em.subject||''}`,
+      draft:      lazFillVariables(parsed.draft||'', em),
+    };
+  } catch(e) {
+    return {
+      email: em, body, issue_type:'general', bullets:['Could not generate — check Groq key'],
+      subject: `Re: ${em.subject||''}`,
+      draft: `Hi {{customer_name}},\n\nThanks for reaching out. I'll look into this and get back to you shortly.\n\nBest,\n{{my_name}}`,
+    };
+  }
+}
+
+// ── Workspace ─────────────────────────────────────────────
+
+function supportRenderWorkspacePage() {
+  if (!_supportDrafts.length) return;
+  const d     = _supportDrafts[_supportDraftPage];
+  const total = _supportDrafts.length;
+  _supportCurrentEmail = d.email;
+
+  document.getElementById('support-ws-page').textContent    = `${_supportDraftPage+1} / ${total}`;
+  document.getElementById('support-ws-prev').disabled       = _supportDraftPage === 0;
+  document.getElementById('support-ws-next').disabled       = _supportDraftPage === total-1;
+  document.getElementById('support-summary-subject').textContent = d.email.subject || '(no subject)';
+  document.getElementById('support-summary-sender').textContent  = d.email.sender  || '';
+  document.getElementById('support-summary-body').textContent    = d.body          || '';
+  document.getElementById('support-draft-subject').value         = d.subject        || '';
+  document.getElementById('support-draft-body').value            = d.draft          || '';
+
+  const bullets = document.getElementById('support-summary-bullets');
+  bullets.innerHTML = (d.bullets||[]).map(b => `<div class="laz-bullet">${escHtml(b)}</div>`).join('');
+
+  const typeEl = document.getElementById('support-issue-type');
+  const type   = SUPPORT_ISSUE_TYPES[d.issue_type] || SUPPORT_ISSUE_TYPES.general;
+  typeEl.textContent   = type.label;
+  typeEl.style.color   = type.color;
+  typeEl.style.borderColor = type.color;
+
+  supportRenderTemplateChips();
+}
+
+function supportWorkspacePage(dir) {
+  if (_supportDrafts[_supportDraftPage]) {
+    _supportDrafts[_supportDraftPage].subject = document.getElementById('support-draft-subject').value;
+    _supportDrafts[_supportDraftPage].draft   = document.getElementById('support-draft-body').value;
+  }
+  _supportDraftPage = Math.max(0, Math.min(_supportDrafts.length-1, _supportDraftPage+dir));
+  supportRenderWorkspacePage();
+}
+
+async function supportRegenerate() {
+  if (!_supportCurrentEmail) return;
+  document.getElementById('support-scan-status').textContent = 'Regenerating…';
+  const draft = await supportGenerateDraft(_supportCurrentEmail, _supportCurrentEmail.body||'');
+  _supportDrafts[_supportDraftPage] = draft;
+  supportRenderWorkspacePage();
+  document.getElementById('support-scan-status').textContent = 'Regenerated ✓';
+}
+
+async function supportCopy() {
+  await navigator.clipboard.writeText(document.getElementById('support-draft-body').value);
+  document.getElementById('support-scan-status').textContent = 'Copied ✓';
+}
+
+function supportSend() {
+  const em      = _supportCurrentEmail;
+  const subject = encodeURIComponent(document.getElementById('support-draft-subject').value);
+  const body    = encodeURIComponent(document.getElementById('support-draft-body').value);
+  const to      = encodeURIComponent(em?.sender_email || '');
+  window.location.href = `mailto:${to}?subject=${subject}&body=${body}`;
+}
+
+// ── Support Template Wizard ───────────────────────────────
+
+let _supWizEmails   = [];
+let _supWizSelected = [];
+let _supWizPage     = 0;
+let _supWizDrafts   = [];
+
+function openSupportTemplateWizard() {
+  _supWizEmails=[]; _supWizSelected=[]; _supWizPage=0; _supWizDrafts=[];
+  document.getElementById('sup-wiz-step1').style.display = 'block';
+  document.getElementById('sup-wiz-step2').style.display = 'none';
+  document.getElementById('sup-wiz-email-list').innerHTML = '';
+  document.getElementById('sup-wiz-browse-status').textContent = '';
+  document.getElementById('sup-wiz-browse-status').style.color = 'var(--muted)';
+  document.getElementById('sup-wiz-build-btn').style.display = 'none';
+  document.getElementById('sup-wiz-footer-hint').style.display = 'block';
+  document.getElementById('sup-wiz-select-bar').style.display = 'none';
+  document.getElementById('sup-wiz-title').textContent    = 'Support Template Wizard — Step 1';
+  document.getElementById('sup-wiz-subtitle').textContent = 'Pick support emails to build reply templates from';
+  document.getElementById('support-wizard-modal').classList.remove('hidden');
+}
+
+function closeSupportTemplateWizard() {
+  document.getElementById('support-wizard-modal').classList.add('hidden');
+}
+
+function supWizBack() {
+  document.getElementById('sup-wiz-step1').style.display = 'block';
+  document.getElementById('sup-wiz-step2').style.display = 'none';
+}
+
+async function supWizBrowse() {
+  const statusEl = document.getElementById('sup-wiz-browse-status');
+  const listEl   = document.getElementById('sup-wiz-email-list');
+  const limit    = parseInt(document.getElementById('sup-wiz-limit').value) || 30;
+  statusEl.innerHTML = '<div class="dot spin" style="display:inline-block;margin-right:4px"></div> Loading…';
+  listEl.innerHTML = ''; _supWizEmails = [];
+
+  const serverUp = await pingImapServer();
+  if (!serverUp) { statusEl.style.color='var(--danger)'; statusEl.textContent='✗ imap_server.py not running'; return; }
+
+  try {
+    const r = await fetch(`${IMAP_SERVER}/browse`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ config: getImapConfig(), limit }), signal: AbortSignal.timeout(30000)
+    });
+    const data = await r.json();
+    if (data.error) throw new Error(data.error);
+    _supWizEmails = data.emails;
+    statusEl.style.color = 'var(--muted)';
+    statusEl.textContent = `${data.emails.length} emails — select support queries to build templates from`;
+    document.getElementById('sup-wiz-select-bar').style.display = 'flex';
+
+    data.emails.forEach(em => {
+      const row = document.createElement('div');
+      row.dataset.uid = em.uid;
+      row.style.cssText = 'padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px;cursor:pointer;display:flex;align-items:flex-start;gap:10px;transition:border-color 0.15s';
+      row.innerHTML = `
+        <input type="checkbox" style="accent-color:var(--accent);width:14px;height:14px;cursor:pointer;flex-shrink:0;margin-top:3px" onchange="supWizRowToggle(this)">
+        <div style="min-width:0">
+          <div style="font-size:0.82rem;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(em.subject||'(no subject)')}</div>
+          <div style="font-size:0.73rem;color:var(--muted)">${escHtml(em.sender_email)} · ${escHtml(em.date)}</div>
+        </div>`;
+      row.onclick = e => { if (e.target.type!=='checkbox') { const cb=row.querySelector('input'); cb.checked=!cb.checked; supWizRowToggle(cb); }};
+      listEl.appendChild(row);
+    });
+    supWizUpdateCount();
+  } catch(e) { statusEl.style.color='var(--danger)'; statusEl.textContent=`✗ ${e.message}`; }
+}
+
+function supWizRowToggle(cb) {
+  const row = cb.closest('div[data-uid]');
+  row.style.borderColor = cb.checked ? 'var(--accent)' : 'var(--border)';
+  row.style.background  = cb.checked ? 'var(--accent-dim)' : 'var(--surface)';
+  supWizUpdateCount();
+  const all=document.querySelectorAll('#sup-wiz-email-list input[type=checkbox]');
+  const checked=document.querySelectorAll('#sup-wiz-email-list input[type=checkbox]:checked');
+  const sa=document.getElementById('sup-wiz-select-all');
+  sa.indeterminate=checked.length>0&&checked.length<all.length;
+  sa.checked=checked.length===all.length;
+}
+
+function supWizToggleAll(checked) {
+  document.querySelectorAll('#sup-wiz-email-list input[type=checkbox]').forEach(cb => {
+    cb.checked=checked;
+    const row=cb.closest('div[data-uid]');
+    row.style.borderColor=checked?'var(--accent)':'var(--border)';
+    row.style.background =checked?'var(--accent-dim)':'var(--surface)';
+  });
+  supWizUpdateCount();
+}
+
+function supWizUpdateCount() {
+  const n = document.querySelectorAll('#sup-wiz-email-list input[type=checkbox]:checked').length;
+  document.getElementById('sup-wiz-selected-count').textContent = n ? `${n} selected` : '';
+  document.getElementById('sup-wiz-build-btn').style.display = n>0 ? 'inline-flex':'none';
+  document.getElementById('sup-wiz-footer-hint').style.display = n>0 ? 'none':'block';
+}
+
+async function supWizStartBuild() {
+  _supWizSelected=[];
+  document.querySelectorAll('#sup-wiz-email-list input[type=checkbox]:checked').forEach(cb => {
+    const uid=cb.closest('div[data-uid]').dataset.uid;
+    const em=_supWizEmails.find(e=>e.uid===uid);
+    if(em) _supWizSelected.push({...em,body:null});
+  });
+  if(!_supWizSelected.length) return;
+  _supWizDrafts=_supWizSelected.map(em=>({email:em,body:null,name:'',keywords:'',tmplBody:'',saved:false}));
+  _supWizPage=0;
+  document.getElementById('sup-wiz-step1').style.display='none';
+  document.getElementById('sup-wiz-step2').style.display='block';
+  document.getElementById('sup-wiz-title').textContent='Support Template Wizard — Step 2';
+  await supWizRenderPage();
+}
+
+async function supWizRenderPage() {
+  const d=_supWizDrafts[_supWizPage], total=_supWizDrafts.length;
+  document.getElementById('sup-wiz-page-label').textContent=`${_supWizPage+1} of ${total}`;
+  document.getElementById('sup-wiz-prev').disabled=_supWizPage===0;
+  document.getElementById('sup-wiz-next').disabled=_supWizPage===total-1;
+  document.getElementById('sup-wiz-email-info').innerHTML=
+    `<strong style="color:var(--text)">${escHtml(d.email.subject||'(no subject)')}</strong><br>${escHtml(d.email.sender)} · ${escHtml(d.email.date)}`;
+  document.getElementById('sup-wiz-save-status').style.color='var(--success)';
+  document.getElementById('sup-wiz-save-status').textContent=d.saved?'✓ Saved':'';
+  const unsaved=_supWizDrafts.filter(x=>!x.saved).length;
+  document.getElementById('sup-wiz-save-all').textContent=unsaved===_supWizDrafts.length?`Save all & close (${total})`:`Save remaining & close (${unsaved} left)`;
+
+  if(!d.body) {
+    try {
+      const r=await fetch(`${IMAP_SERVER}/body`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({config:getImapConfig(),uid:d.email.uid}),signal:AbortSignal.timeout(20000)});
+      const data=await r.json(); d.body=data.body||'(empty)'; d.email.body=d.body;
+    } catch(e){d.body='(could not fetch body)';}
+  }
+  document.getElementById('sup-wiz-body-text').textContent=d.body;
+
+  if(d.name) {
+    supWizPopulateForm(d);
+  } else {
+    document.getElementById('sup-wiz-ai-status').style.display='flex';
+    document.getElementById('sup-wiz-form').style.display='none';
+    await supWizGenerateSuggestion(d);
+    document.getElementById('sup-wiz-ai-status').style.display='none';
+    document.getElementById('sup-wiz-form').style.display='block';
+    supWizPopulateForm(d);
+  }
+}
+
+async function supWizGenerateSuggestion(d) {
+  const groqKey=document.getElementById('gemini-key')?.value?.trim()||'';
+  const model=document.getElementById('gemini-model')?.value||'llama-3.3-70b-versatile';
+  const cleanBody=(d.body||'').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g,'').replace(/\r\n/g,'\n').slice(0,3000);
+  const prompt=`${SUPPORT_PERSONA}\n\nCreate a reusable support reply template for this type of support request.\n\nFROM: ${d.email.sender}\nSUBJECT: ${d.email.subject}\nBODY:\n${cleanBody}\n\nReturn ONLY JSON:\n{"name":"Template name","keywords":"keyword1, keyword2, keyword3","body":"Full reply template with numbered steps where applicable. Use {{customer_name}}, {{subject}}, {{my_name}}. Use [brackets] for per-issue specifics."}\nRaw JSON only.`;
+  try {
+    const r=await fetch('https://api.groq.com/openai/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${groqKey}`},body:JSON.stringify({model,max_tokens:700,temperature:0.5,messages:[{role:'user',content:prompt}]}),signal:AbortSignal.timeout(30000)});
+    const data=await r.json();
+    let raw=data.choices?.[0]?.message?.content?.trim()||'{}';
+    raw=raw.replace(/^```(?:json)?\s*/i,'').replace(/\s*```$/,'').trim();
+    raw=raw.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g,'');
+    let parsed={};
+    try{parsed=JSON.parse(raw);}catch(e){const nm=raw.match(/"name"\s*:\s*"([^"]+)"/);const km=raw.match(/"keywords"\s*:\s*"([^"]+)"/);const bm=raw.match(/"body"\s*:\s*"([\s\S]+?)(?:"\s*}|",\s*")/);parsed={name:nm?.[1]||'',keywords:km?.[1]||'',body:bm?.[1]?.replace(/\\n/g,'\n')||''};}
+    d.name=parsed.name||d.email.subject||'New Template'; d.keywords=parsed.keywords||''; d.tmplBody=parsed.body||'';
+  } catch(e){d.name=d.email.subject||'New Template';d.keywords='';d.tmplBody=`Hi {{customer_name}},\n\nThanks for reaching out about {{subject}}.\n\n[Steps to resolve the issue]\n\nLet me know if this helps.\n\n{{my_name}}`;}
+}
+
+function supWizPopulateForm(d) {
+  document.getElementById('sup-wiz-tmpl-name').value=d.name||'';
+  document.getElementById('sup-wiz-tmpl-keywords').value=d.keywords||'';
+  document.getElementById('sup-wiz-tmpl-body').value=d.tmplBody||'';
+  document.getElementById('sup-wiz-form').style.display='block';
+}
+
+function supWizStash() {
+  const d=_supWizDrafts[_supWizPage]; if(!d) return;
+  d.name=document.getElementById('sup-wiz-tmpl-name').value.trim();
+  d.keywords=document.getElementById('sup-wiz-tmpl-keywords').value.trim();
+  d.tmplBody=document.getElementById('sup-wiz-tmpl-body').value;
+}
+
+async function supWizPage(dir) { supWizStash(); _supWizPage=Math.max(0,Math.min(_supWizDrafts.length-1,_supWizPage+dir)); await supWizRenderPage(); }
+
+function supWizSaveCurrent() {
+  supWizStash(); const d=_supWizDrafts[_supWizPage];
+  if(!d.name){document.getElementById('sup-wiz-save-status').style.color='var(--danger)';document.getElementById('sup-wiz-save-status').textContent='Enter a name first';return;}
+  _supWizPushTemplate(d); d.saved=true;
+  document.getElementById('sup-wiz-save-status').style.color='var(--success)';
+  document.getElementById('sup-wiz-save-status').textContent=`✓ Saved as "${d.name}"`;
+  const unsaved=_supWizDrafts.filter(x=>!x.saved).length;
+  document.getElementById('sup-wiz-save-all').textContent=unsaved===0?'Close':`Save remaining & close (${unsaved} left)`;
+}
+
+function supWizSaveAll() {
+  supWizStash(); let saved=0;
+  _supWizDrafts.forEach(d=>{ if(!d.saved&&d.name){_supWizPushTemplate(d);d.saved=true;saved++;}});
+  if(_supWizDrafts.filter(d=>!d.saved).length===0) closeSupportTemplateWizard();
+  else{document.getElementById('sup-wiz-save-status').style.color='var(--warning)';document.getElementById('sup-wiz-save-status').textContent=`${saved} saved · some skipped (missing name)`;}
+}
+
+function _supWizPushTemplate(d) {
+  const id=`stmpl_${Date.now()}_${Math.random().toString(36).slice(2,5)}`;
+  _supportTemplates.push({id,name:d.name,keywords:d.keywords,body:d.tmplBody});
+  saveSupportTemplates(); rebuildSupportTemplateSelector();
+}
+
+
+
+function xlsxDownload(rows, headers, filename) {
+  try {
+    if (typeof XLSX === 'undefined') throw new Error('SheetJS not loaded');
+    const wsData = [headers, ...rows];
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    // Auto column widths
+    const colWidths = headers.map((h, i) => ({
+      wch: Math.max(h.length, ...rows.map(r => String(r[i]||'').length), 10)
+    }));
+    ws['!cols'] = colWidths;
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+    XLSX.writeFile(wb, filename);
+  } catch(e) {
+    // Fallback to CSV if SheetJS unavailable
+    csvDownload(rows, headers, filename.replace('.xlsx', '.csv'));
+  }
+}
+
+function csvDownload(rows, headers, filename) {
+  const csv = [headers, ...rows].map(r => r.map(v => `"${String(v||'').replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename; a.click();
+}
+
+function dateStamp() { return new Date().toISOString().split('T')[0]; }
+
+// ── Lead Capture exports ───────────────────────────────────────────────────────
+
+function leadsExportExcel() {
+  const active = pendingLeads.filter(l => !l.error);
+  if (!active.length) return;
+  const headers = ['Customer Name', 'Email', 'Phone', 'Spec', 'Subject', 'Sender', 'Date', 'Notes', 'Status'];
+  const rows = active.map(l => {
+    const f = l.fields || {};
+    return [
+      f.customer_name || f.name || '',
+      f.email         || '',
+      f.phone         || '',
+      l.spec_name     || '',
+      l.subject       || '',
+      l.sender        || '',
+      l.date          || '',
+      f.notes         || l.body_snippet || '',
+      l._pushed ? 'Pushed' : l._dismissed ? 'Dismissed' : 'Pending',
+    ];
+  });
+  xlsxDownload(rows, headers, `leads-${dateStamp()}.xlsx`);
+}
+
+function leadsExportCSV() {
+  const active = pendingLeads.filter(l => !l.error);
+  if (!active.length) return;
+  const headers = ['Customer Name', 'Email', 'Phone', 'Spec', 'Subject', 'Sender', 'Date', 'Notes', 'Status'];
+  const rows = active.map(l => {
+    const f = l.fields || {};
+    return [
+      f.customer_name || f.name || '', f.email || '', f.phone || '',
+      l.spec_name || '', l.subject || '', l.sender || '', l.date || '',
+      f.notes || l.body_snippet || '',
+      l._pushed ? 'Pushed' : l._dismissed ? 'Dismissed' : 'Pending',
+    ];
+  });
+  csvDownload(rows, headers, `leads-${dateStamp()}.csv`);
+}
+
+// ── Prospecting exports ────────────────────────────────────────────────────────
+
+function prospExportExcel() {
+  const active = _prospects.filter(p => !p._dismissed);
+  if (!active.length) return;
+  const headers = ['Name', 'Title', 'Company', 'Email', 'Phone', 'Location', 'Website', 'Notes', 'Source', 'Status'];
+  const rows = active.map(p => [
+    p.name || '', p.title || '', p.company || '', p.email || '',
+    p.phone || '', p.location || '', p.website || '', p.notes || '',
+    p._source || 'generated',
+    p._pushed ? 'Pushed to Odoo' : 'Prospect',
+  ]);
+  xlsxDownload(rows, headers, `prospects-${dateStamp()}.xlsx`);
+}
+
+function prospExportCSV() {
+  const active = _prospects.filter(p => !p._dismissed);
+  if (!active.length) return;
+  const headers = ['Name', 'Title', 'Company', 'Email', 'Phone', 'Location', 'Website', 'Notes', 'Source', 'Status'];
+  const rows = active.map(p => [
+    p.name || '', p.title || '', p.company || '', p.email || '',
+    p.phone || '', p.location || '', p.website || '', p.notes || '',
+    p._source || 'generated',
+    p._pushed ? 'Pushed to Odoo' : 'Prospect',
+  ]);
+  csvDownload(rows, headers, `prospects-${dateStamp()}.csv`);
+}
 
 function openNavPalette() {
   // Update badge states based on current app state
@@ -6906,6 +8794,7 @@ function navGo(dest) {
   else if (dest === 'laz-prospect')    { promptLazUnlock(); setTimeout(()=>lazTab('prospect'),  100); }
   else if (dest === 'laz-templates')   { promptLazUnlock(); setTimeout(()=>lazTab('templates'), 100); }
   else if (dest === 'laz-discuss')     { promptLazUnlock(); setTimeout(()=>lazTab('discuss'),   100); }
+  else if (dest === 'laz-support')     { promptLazUnlock(); setTimeout(()=>lazTab('support'),   100); }
   else if (dest === 'laz-unlock')      { promptLazUnlock(); }
 }
 
