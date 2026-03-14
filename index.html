@@ -930,6 +930,127 @@
     font-size: 0.72rem; font-family: 'DM Mono', monospace; border: 1px solid rgba(200,240,78,0.2);
   }
 
+  /* ── form-grid utility ──────────────────────────────────────── */
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+
+  /* ── Mobile responsive ──────────────────────────────────────── */
+  @media (max-width: 600px) {
+
+    body { padding: 12px; }
+
+    /* Header */
+    .header {
+      gap: 12px;
+      margin-bottom: 24px;
+      align-items: center;
+    }
+    .logo-mark { width: 36px; height: 36px; border-radius: 9px; }
+    .logo-mark svg { width: 20px; height: 20px; }
+    .header-text h1 { font-size: 1.3rem; }
+    .header-text p { font-size: 0.78rem; margin-top: 3px; }
+
+    /* Theme switcher — hide on mobile, accessible via gear */
+    .theme-switcher { display: none; }
+
+    /* Step indicators — shrink labels, smaller dots */
+    .steps { margin-bottom: 20px; gap: 0; }
+    .step-dot { width: 22px; height: 22px; font-size: 0.6rem; }
+    .step-label { display: none; } /* hide inactive text labels */
+    .step-label.active { display: block; font-size: 0.65rem; } /* show active only */
+    .step-line { margin: 0 4px; max-width: 20px; }
+
+    /* Card */
+    .card { padding: 18px 16px; border-radius: 12px; margin-bottom: 12px; }
+    .card-title { font-size: 1.1rem; }
+    .card-subtitle { font-size: 0.8rem; margin-bottom: 20px; }
+
+    /* Forms */
+    .form-grid { grid-template-columns: 1fr; gap: 10px; }
+    .field-row { grid-template-columns: 1fr; gap: 10px; }
+    .field { margin-bottom: 14px; }
+    .field input, .field select { font-size: 0.85rem; padding: 10px 12px; }
+
+    /* Buttons */
+    .btn { padding: 10px 16px; font-size: 0.84rem; }
+    .btn-row { flex-direction: column; gap: 8px; margin-top: 20px; }
+    .btn-row .btn { width: 100%; justify-content: center; }
+
+    /* Summary grid 3-col → 1-col */
+    .summary-grid { grid-template-columns: 1fr; gap: 8px; }
+
+    /* Modals — full screen on mobile */
+    .modal-overlay { padding: 0; align-items: flex-end; }
+    .modal {
+      max-width: 100% !important;
+      border-radius: 16px 16px 0 0;
+      max-height: 92vh;
+    }
+    .modal-body { padding: 14px 16px; }
+    .modal-header { padding: 14px 16px 12px; }
+    .modal-footer { padding: 12px 16px; }
+
+    /* Nav palette — full width on mobile */
+    .nav-palette { padding-top: 0; align-items: flex-end; }
+    .nav-palette-box { border-radius: 16px 16px 0 0; max-height: 80vh; overflow-y: auto; }
+
+    /* Laz Mode dashboard — 2x3 grid on mobile instead of 1x5 */
+    #laz-dashboard { grid-template-columns: 1fr 1fr !important; }
+
+    /* Laz Mode tab bar — scrollable on mobile */
+    #laz-tab-bar {
+      flex-wrap: nowrap !important;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      padding-bottom: 2px;
+    }
+    #laz-tab-bar .laz-tab, #laz-tab-bar button {
+      padding: 7px 10px !important;
+      font-size: 0.72rem !important;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    /* Hide the flex:1 spacer on mobile so tabs stay compact */
+    #laz-tab-bar > div[style*="flex:1"] { display: none; }
+
+    /* Laz split panels — stack vertically */
+    .laz-split { grid-template-columns: 1fr !important; }
+
+    /* Lead / prospect cards — more compact */
+    .lead-card { padding: 10px 12px; }
+    .lead-card .btn { padding: 4px 10px; font-size: 0.74rem; }
+
+    /* Activity cards */
+    .activity-card { padding: 14px; }
+    .activity-meta { gap: 8px; }
+
+    /* Step 6 header — stack user selector */
+    #step-6 > div:first-child > div:first-child {
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    #laz-pipeline-user { max-width: 100% !important; width: 100%; }
+
+    /* Gear menu — wider on mobile */
+    #gear-menu { min-width: 200px; right: 0; }
+
+    /* Email preview */
+    .email-preview-header { flex-direction: column; gap: 4px; }
+
+    /* Batch bar */
+    .batch-bar { flex-wrap: wrap; }
+  }
+
+  @media (max-width: 400px) {
+    body { padding: 8px; }
+    .card { padding: 14px 12px; }
+    .header-text h1 { font-size: 1.1rem; }
+  }
+
 </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
@@ -1598,7 +1719,7 @@
       </div>
 
       <!-- ── Tab nav ────────────────────────────────────────── -->
-      <div style="display:flex;gap:4px;align-items:center">
+      <div id="laz-tab-bar" style="display:flex;gap:4px;align-items:center;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none">
         <button class="laz-tab active" id="laz-tab-maildesk"  onclick="lazTab('maildesk')"  style="padding:8px 16px;font-size:0.8rem;border-radius:8px 8px 0 0;border:1px solid var(--accent);border-bottom:none;background:var(--surface);color:var(--accent);cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:500">Mail Desk</button>
         <button class="laz-tab"        id="laz-tab-prospect"  onclick="lazTab('prospect')"  style="padding:8px 16px;font-size:0.8rem;border-radius:8px 8px 0 0;border:1px solid var(--border);border-bottom:none;background:transparent;color:var(--muted);cursor:pointer;font-family:'DM Sans',sans-serif">Prospect</button>
         <button class="laz-tab"        id="laz-tab-discuss"   onclick="lazTab('discuss')"   style="padding:8px 16px;font-size:0.8rem;border-radius:8px 8px 0 0;border:1px solid var(--border);border-bottom:none;background:transparent;color:var(--muted);cursor:pointer;font-family:'DM Sans',sans-serif;position:relative">
