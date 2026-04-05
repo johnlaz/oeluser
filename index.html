@@ -4,7 +4,7 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
-  <meta name="oel-version" content="v3.02">
+  <meta name="oel-version" content="v4.01">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="mobile-web-app-capable" content="yes">
@@ -108,6 +108,16 @@
   .theme-dot:hover { transform: scale(1.2); }
   .theme-dot.active { border-color: var(--text); }
   .theme-dot[data-t="lime"]   { background: #c8f04e; }
+
+  /* ── Status lights ── */
+  .status-light { display:flex;align-items:center;gap:4px;cursor:default; }
+  .sl-dot { width:7px;height:7px;border-radius:50%;background:var(--border);flex-shrink:0;transition:background 0.3s; }
+  .sl-label { font-size:0.67rem;color:var(--muted);font-family:'DM Sans',sans-serif; }
+  .status-light.ok   .sl-dot { background:#4ef0a0;box-shadow:0 0 5px rgba(78,240,160,0.5); }
+  .status-light.warn .sl-dot { background:var(--warning);box-shadow:0 0 5px rgba(240,200,78,0.4); }
+  .status-light.err  .sl-dot { background:var(--danger);box-shadow:0 0 5px rgba(255,107,107,0.4); }
+  .status-light.checking .sl-dot { background:var(--accent);animation:sl-pulse 1s infinite; }
+  @keyframes sl-pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
   .theme-dot[data-t="cyan"]   { background: #00d8ff; }
   .theme-dot[data-t="ember"]  { background: #ff7c2a; }
   .theme-dot[data-t="light"]  { background: #6c47ff; }
@@ -134,6 +144,16 @@
   }
   .laz-color-swatch:hover { transform: scale(1.2); }
   .laz-color-swatch.active { border-color: var(--text); }
+
+  /* ── Compact mode ── */
+  body.oel-compact .container { max-width: 680px; }
+  body.oel-compact .card { padding: 14px 16px; }
+  body.oel-compact .laz-split { grid-template-columns: 1fr; }
+  body.oel-compact .laz-stat-card { padding: 8px 10px; }
+  body.oel-compact .laz-stat-value { font-size: 1.1rem; }
+  body.oel-compact #laz-dashboard { grid-template-columns: repeat(3,1fr); }
+  body.oel-compact .steps { gap: 4px; }
+  body.oel-compact .step-label { display: none; }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -1161,6 +1181,10 @@
           <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M2 9v2.5h9V9M6.5 8V1M4 4l2.5-2.5L9 4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
           Import settings
         </button>
+        <button class="gear-item" onclick="gearGo(oelToggleCompact)" id="compact-gear-btn">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><rect x="2" y="2" width="9" height="9" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M5 5h3M5 8h3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+          <span id="compact-gear-label">Compact mode</span>
+        </button>
         <button class="gear-item" onclick="gearGo(()=>clearAllData())">
           <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M2 3h9M5 3V2h3v1M3.5 3l.5 8h5.5l.5-8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
           Clear all saved data
@@ -1176,6 +1200,11 @@
           <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><rect x="1.5" y="1.5" width="10" height="10" rx="2" stroke="currentColor" stroke-width="1.3"/><path d="M4.5 5h4M4.5 7.5h2.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
           About OEL
         </button>
+        <button class="gear-item" onclick="gearGo(openServerFiles)">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M2 2.5h9M2 5.5h9M2 8.5h5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M8 8l2.5 2.5M10.5 8L8 10.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+          Download server files
+        </button>
+
 
         <div style="height:1px;background:var(--border);margin:4px 0"></div>
         <button class="gear-item" id="laz-gear-btn" onclick="gearGo(promptLazUnlock)" style="color:var(--accent)">
@@ -1186,6 +1215,36 @@
     </div>
     <!-- hidden import file input shared with gear menu -->
     <input type="file" id="import-file-hidden" accept=".json" onchange="importCredentials(event)" style="display:none">
+  </div>
+
+  <!-- Version + Status lights bar -->
+  <div id="app-status-bar" style="display:flex;align-items:center;gap:14px;padding:7px 16px;background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:10px;flex-wrap:wrap">
+    <span id="app-version-stamp" style="font-size:0.68rem;font-family:'DM Mono',monospace;color:var(--muted);letter-spacing:0.04em">OEL v3.06</span>
+    <div style="width:1px;height:14px;background:var(--border)"></div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <div style="display:flex;align-items:center;gap:5px" title="Odoo connection">
+        <div id="sl-odoo" style="width:7px;height:7px;border-radius:50%;background:var(--muted);transition:background 0.3s" title="Odoo"></div>
+        <span style="font-size:0.7rem;color:var(--muted)">Odoo</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:5px" title="IMAP server">
+        <div id="sl-imap" style="width:7px;height:7px;border-radius:50%;background:var(--muted);transition:background 0.3s"></div>
+        <span style="font-size:0.7rem;color:var(--muted)">IMAP</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:5px" title="CORS proxy">
+        <div id="sl-proxy" style="width:7px;height:7px;border-radius:50%;background:var(--muted);transition:background 0.3s"></div>
+        <span style="font-size:0.7rem;color:var(--muted)">Proxy</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:5px" title="Gmail API">
+        <div id="sl-gmail" style="width:7px;height:7px;border-radius:50%;background:var(--muted);transition:background 0.3s"></div>
+        <span style="font-size:0.7rem;color:var(--muted)">Gmail</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:5px" title="Groq API key">
+        <div id="sl-groq" style="width:7px;height:7px;border-radius:50%;background:var(--muted);transition:background 0.3s"></div>
+        <span style="font-size:0.7rem;color:var(--muted)">Groq</span>
+      </div>
+    </div>
+    <div style="flex:1"></div>
+    <button onclick="oelRefreshStatusLights()" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:0.68rem;font-family:'DM Sans',sans-serif;padding:2px 6px;border-radius:4px;transition:color 0.15s" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--muted)'" title="Refresh status">↻ refresh</button>
   </div>
 
   <!-- Step indicators -->
@@ -1419,7 +1478,7 @@
       </div>
       <div class="field">
         <label>Your Groq API Key</label>
-        <input type="password" id="gemini-key" placeholder="gsk_…">
+        <input type="password" id="gemini-key" placeholder="gsk_…" oninput="setLight('sl-groq', this.value.startsWith('gsk_') ? 'on' : this.value ? 'warn' : 'off')">
         <div class="field-hint">Get a free key at <a href="https://console.groq.com/keys" target="_blank" style="color:var(--accent)">console.groq.com/keys</a> — free forever, no credit card needed.</div>
       </div>
       <div class="field">
@@ -1689,6 +1748,10 @@
         </button>
         <button class="btn btn-ghost" onclick="cancelScan()" id="cancel-btn" style="display:none;padding:9px 16px;font-size:0.83rem;color:var(--danger);border-color:var(--danger)">
           ✕ Cancel
+        </button>
+        <button class="btn btn-ghost" onclick="blSetTab('leads');openBlocklist()" style="padding:9px 14px;font-size:0.83rem;gap:6px" title="View senders blocked from lead capture">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="4.5" stroke="currentColor" stroke-width="1.3"/><path d="M3 3l6 6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+          Blocked
         </button>
       </div>
 
@@ -2217,11 +2280,27 @@
 
       <!-- Quick Message bar -->
       <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:14px">
-        <div style="font-size:0.68rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);font-weight:500;margin-bottom:10px">Quick Message — Odoo</div>
+        <div style="display:flex;align-items:center;margin-bottom:10px;gap:8px">
+          <div style="font-size:0.68rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);font-weight:500">Quick Message — Odoo</div>
+          <div style="flex:1"></div>
+          <div style="display:flex;gap:0;border:1px solid var(--border);border-radius:6px;overflow:hidden;font-size:0.72rem">
+            <button id="qm-mode-colleague" onclick="qmSetMode('colleague')" style="padding:3px 10px;background:var(--accent-dim);color:var(--accent);border:none;cursor:pointer;font-family:'DM Sans',sans-serif">Colleague</button>
+            <button id="qm-mode-contact"   onclick="qmSetMode('contact')"   style="padding:3px 10px;background:none;color:var(--muted);border:none;cursor:pointer;font-family:'DM Sans',sans-serif">Contact</button>
+          </div>
+        </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start">
+          <!-- Colleague selector -->
           <select id="qm-user-select" style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.82rem;outline:none;cursor:pointer;flex:1;min-width:140px">
             <option value="">Select colleague…</option>
           </select>
+          <!-- Contact search (hidden by default) -->
+          <div id="qm-contact-wrap" style="display:none;flex:1;min-width:140px;position:relative">
+            <input id="qm-contact-search" type="text" placeholder="Search contact name…"
+              style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.82rem;outline:none"
+              oninput="qmContactSearch(this.value)">
+            <div id="qm-contact-results" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--surface);border:1px solid var(--border);border-radius:8px;z-index:100;max-height:180px;overflow-y:auto;box-shadow:0 4px 16px rgba(0,0,0,0.2)"></div>
+            <input id="qm-contact-id" type="hidden" value="">
+          </div>
           <div style="flex:2;min-width:200px;position:relative">
             <textarea id="qm-message" rows="2" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.82rem;outline:none;resize:none;line-height:1.5" placeholder="Type a quick message…" onkeydown="if(event.key==='Enter'&&(event.ctrlKey||event.metaKey)){qmSend();event.preventDefault();}"></textarea>
           </div>
@@ -2627,6 +2706,7 @@
           <button id="bl-tab-all"    onclick="blSetTab('all')"    style="padding:10px 18px;font-size:0.79rem;background:var(--accent-dim);color:var(--accent);border:none;border-bottom:2px solid var(--accent);cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:500">All <span id="bl-count-all" style="font-size:0.7rem;opacity:0.7"></span></button>
           <button id="bl-tab-block"  onclick="blSetTab('block')"  style="padding:10px 18px;font-size:0.79rem;background:none;color:var(--muted);border:none;border-bottom:2px solid transparent;cursor:pointer;font-family:'DM Sans',sans-serif">🚫 Blocked <span id="bl-count-block" style="font-size:0.7rem;opacity:0.7"></span></button>
           <button id="bl-tab-hide"   onclick="blSetTab('hide')"   style="padding:10px 18px;font-size:0.79rem;background:none;color:var(--muted);border:none;border-bottom:2px solid transparent;cursor:pointer;font-family:'DM Sans',sans-serif">👻 Hidden <span id="bl-count-hide" style="font-size:0.7rem;opacity:0.7"></span></button>
+          <button id="bl-tab-leads"  onclick="blSetTab('leads')"  style="padding:10px 18px;font-size:0.79rem;background:none;color:var(--muted);border:none;border-bottom:2px solid transparent;cursor:pointer;font-family:'DM Sans',sans-serif">📥 Lead Capture <span id="bl-count-leads" style="font-size:0.7rem;opacity:0.7"></span></button>
         </div>
 
         <!-- Info strip per tab -->
@@ -3220,6 +3300,10 @@
           Over Achiever
         </label>
         <div style="flex:1"></div>
+        <button class="btn btn-ghost" onclick="persBriefingExport()" style="gap:5px" title="Download as .txt file">
+          <svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M5.5 1v7M2.5 5.5l3 3 3-3M1 9.5h9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Export
+        </button>
         <button class="btn btn-ghost" onclick="persBriefingSendToSelf()" style="gap:5px" title="Send to yourself">
           <svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M1 1l9 4.5L1 10V6.5l6-2-6-2V1z" fill="currentColor"/></svg>
           Send to myself
@@ -3627,8 +3711,61 @@
   </div>
 </div>
 
+</div><!-- end .container -->
+
+
+
+</div>
+
 <script>
-  // AbortSignal.timeout polyfill for browsers that don't support it
+// -- Server file getters ------------------------------------------------
+function oelGetStartBat()     { return new TextDecoder().decode(Uint8Array.from(atob("QGVjaG8gb2ZmCjo6IE9kb28gRW1haWwgTGluayAtIFN0YXJ0Cjo6IERvdWJsZS1jbGljayB0byBsYXVuY2guIFJ1bnMgYXMgYWRtaW5pc3RyYXRvciBhdXRvbWF0aWNhbGx5LgoKOjog4pSA4pSAIFJlbGlhYmxlIFVBQyBzZWxmLWVsZXZhdGlvbiDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIAKPm51bCAyPiYxICIlU1lTVEVNUk9PVCVcc3lzdGVtMzJcY2FjbHMuZXhlIiAiJVNZU1RFTVJPT1QlXHN5c3RlbTMyXGNvbmZpZ1xzeXN0ZW0iCmlmICclZXJyb3JsZXZlbCUnIE5FUSAnMCcgKAogICAgZWNobyBSZXF1ZXN0aW5nIGFkbWluaXN0cmF0b3IgcHJpdmlsZWdlcy4uLgogICAgZ290byBVQUNQcm9tcHQKKSBlbHNlICggZ290byBHb3RBZG1pbiApCgo6VUFDUHJvbXB0CiAgICBlY2hvIFNldCBVQUMgPSBDcmVhdGVPYmplY3ReKCJTaGVsbC5BcHBsaWNhdGlvbiJeKSA+ICIldGVtcCVcZ2V0YWRtaW4udmJzIgogICAgZWNobyBVQUMuU2hlbGxFeGVjdXRlICIlfnMwIiwgIiIsICIiLCAicnVuYXMiLCAxID4+ICIldGVtcCVcZ2V0YWRtaW4udmJzIgogICAgIiV0ZW1wJVxnZXRhZG1pbi52YnMiCiAgICBkZWwgIiV0ZW1wJVxnZXRhZG1pbi52YnMiCiAgICBleGl0IC9iCgo6R290QWRtaW4KICAgIHB1c2hkICIlfmRwMCIKCjo6IOKUgOKUgCBQeXRob24gY2hlY2sg4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSACnB5dGhvbiAtLXZlcnNpb24gPm51bCAyPiYxCmlmIGVycm9ybGV2ZWwgMSAoCiAgICBlY2hvIFB5dGhvbiBub3QgZm91bmQuIEluc3RhbGwgZnJvbSBodHRwczovL3B5dGhvbi5vcmcKICAgIHBhdXNlCiAgICBleGl0IC9iIDEKKQoKOjog4pSA4pSAIEF1dG8tc3RhcnR1cCByZWdpc3RyYXRpb24gKHJ1bnMgb25jZSwgc2lsZW50bHkpIOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgApzZXQgU1RBUlRVUF9ESVI9JUFQUERBVEElXE1pY3Jvc29mdFxXaW5kb3dzXFN0YXJ0IE1lbnVcUHJvZ3JhbXNcU3RhcnR1cApzZXQgU0hPUlRDVVQ9JVNUQVJUVVBfRElSJVxPZG9vRW1haWxMaW5rLmxuawppZiBub3QgZXhpc3QgIiVTSE9SVENVVCUiICgKICAgIHBvd2Vyc2hlbGwgLVdpbmRvd1N0eWxlIEhpZGRlbiAtQ29tbWFuZCAiJHdzPU5ldy1PYmplY3QgLUNvbU9iamVjdCBXU2NyaXB0LlNoZWxsOyAkcz0kd3MuQ3JlYXRlU2hvcnRjdXQoJyVTSE9SVENVVCUnKTsgJHMuVGFyZ2V0UGF0aD0nJX5kcG54MCc7ICRzLldvcmtpbmdEaXJlY3Rvcnk9JyV+ZHAwJzsgJHMuV2luZG93U3R5bGU9NzsgJHMuRGVzY3JpcHRpb249J09kb29FbWFpbExpbmsgYmFja2dyb3VuZCBzZXJ2ZXJzJzsgJHMuU2F2ZSgpIiA+bnVsIDI+JjEKKQoKOjog4pSA4pSAIFN0b3AgYW55IGV4aXN0aW5nIGluc3RhbmNlcyDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIAKcG93ZXJzaGVsbCAtV2luZG93U3R5bGUgSGlkZGVuIC1Db21tYW5kICJTdG9wLVByb2Nlc3MgLUlkIChHZXQtTmV0VENQQ29ubmVjdGlvbiAtTG9jYWxQb3J0IDc4NDMgLUVycm9yQWN0aW9uIFNpbGVudGx5Q29udGludWUpLk93bmluZ1Byb2Nlc3MgLUVycm9yQWN0aW9uIFNpbGVudGx5Q29udGludWUiID5udWwgMj4mMQpwb3dlcnNoZWxsIC1XaW5kb3dTdHlsZSBIaWRkZW4gLUNvbW1hbmQgIlN0b3AtUHJvY2VzcyAtSWQgKEdldC1OZXRUQ1BDb25uZWN0aW9uIC1Mb2NhbFBvcnQgNzg0MiAtRXJyb3JBY3Rpb24gU2lsZW50bHlDb250aW51ZSkuT3duaW5nUHJvY2VzcyAtRXJyb3JBY3Rpb24gU2lsZW50bHlDb250aW51ZSIgPm51bCAyPiYxCnRpbWVvdXQgL3QgMSAvbm9icmVhayA+bnVsCgo6OiDilIDilIAgU3RhcnQgc2VydmVycyDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIAKcG93ZXJzaGVsbCAtV2luZG93U3R5bGUgSGlkZGVuIC1Db21tYW5kICJTdGFydC1Qcm9jZXNzIHB5dGhvbncgLUFyZ3VtZW50TGlzdCAnaW1hcF9zZXJ2ZXIucHknIC1Xb3JraW5nRGlyZWN0b3J5ICclfmRwMCcgLVdpbmRvd1N0eWxlIEhpZGRlbiAtRXJyb3JBY3Rpb24gU2lsZW50bHlDb250aW51ZSIKaWYgZXJyb3JsZXZlbCAxICgKICAgIHBvd2Vyc2hlbGwgLVdpbmRvd1N0eWxlIEhpZGRlbiAtQ29tbWFuZCAiU3RhcnQtUHJvY2VzcyBweXRob24gLUFyZ3VtZW50TGlzdCAnaW1hcF9zZXJ2ZXIucHknIC1Xb3JraW5nRGlyZWN0b3J5ICclfmRwMCcgLVdpbmRvd1N0eWxlIEhpZGRlbiIKKQoKOjog4pSA4pSAIFdhaXQgdGhlbiBvcGVuIGFwcCDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIAKdGltZW91dCAvdCAzIC9ub2JyZWFrID5udWwKc2V0ICJGSUxFX1VSTD1maWxlOi8vLyV+ZHAwaW5kZXguaHRtbCIKc2V0ICJGSUxFX1VSTD0lRklMRV9VUkw6XD0vJSIKc3RhcnQgIiIgImNocm9tZS5leGUiIC0tZGlzay1jYWNoZS1zaXplPTEgIiVGSUxFX1VSTCUiIDI+bnVsCmlmIGVycm9ybGV2ZWwgMSAoIHN0YXJ0ICIiICJpbmRleC5odG1sIiApCmV4aXQgL2IgMAo="),c=>c.charCodeAt(0))); }
+function oelGetServerPy()     { return new TextDecoder().decode(Uint8Array.from(atob("IyEvdXNyL2Jpbi9lbnYgcHl0aG9uMwoiIiIKT2RvbyBFbWFpbCBMaW5rIC0gTG9jYWwgQ09SUyBQcm94eSArIEdtYWlsIEFQSSBTZXJ2ZXIKUnVucyBvbiBodHRwOi8vbG9jYWxob3N0Ojc4NDIKCkdtYWlsIEFQSSBzZXR1cDoKICAxLiBEcm9wIGNyZWRlbnRpYWxzLmpzb24gZnJvbSBHb29nbGUgQ2xvdWQgQ29uc29sZSBpbnRvIHRoaXMgZm9sZGVyCiAgMi4gUnVuIHN0YXJ0LmJhdCDigJQgYnJvd3NlciBvcGVucyB0byBhdXRob3JpemUgb24gZmlyc3QgdXNlCiAgMy4gdG9rZW4uanNvbiBzYXZlZCBhdXRvbWF0aWNhbGx5IGZvciBmdXR1cmUgcnVucwoiIiIKCmZyb20gaHR0cC5zZXJ2ZXIgaW1wb3J0IEhUVFBTZXJ2ZXIsIEJhc2VIVFRQUmVxdWVzdEhhbmRsZXIKZnJvbSB1cmxsaWIucmVxdWVzdCBpbXBvcnQgdXJsb3BlbiwgUmVxdWVzdApmcm9tIHVybGxpYi5wYXJzZSBpbXBvcnQgdXJscGFyc2UsIHBhcnNlX3FzCmltcG9ydCB1cmxsaWIuZXJyb3IsIGpzb24sIHRocmVhZGluZywgb3MsIGJhc2U2NAoKUE9SVCAgICAgICA9IDc4NDIKU0NPUEVTICAgICA9IFsnaHR0cHM6Ly93d3cuZ29vZ2xlYXBpcy5jb20vYXV0aC9nbWFpbC5yZWFkb25seSddCkNSRURTX0ZJTEUgPSBvcy5wYXRoLmpvaW4ob3MucGF0aC5kaXJuYW1lKG9zLnBhdGguYWJzcGF0aChfX2ZpbGVfXykpLCAnY3JlZGVudGlhbHMuanNvbicpClRPS0VOX0ZJTEUgPSBvcy5wYXRoLmpvaW4ob3MucGF0aC5kaXJuYW1lKG9zLnBhdGguYWJzcGF0aChfX2ZpbGVfXykpLCAndG9rZW4uanNvbicpCgpfaW5ib3hfc3RvcmUgID0ge30KX2luYm94X2xvY2sgICA9IHRocmVhZGluZy5Mb2NrKCkKX2dtYWlsX3N2YyAgICA9IE5vbmUKX2dtYWlsX2xvY2sgICA9IHRocmVhZGluZy5Mb2NrKCkKCgpkZWYgX2xpYnNfb2soKToKICAgIHRyeToKICAgICAgICBpbXBvcnQgZ29vZ2xlLm9hdXRoMi5jcmVkZW50aWFscywgZ29vZ2xlX2F1dGhfb2F1dGhsaWIuZmxvdywgZ29vZ2xlYXBpY2xpZW50LmRpc2NvdmVyeQogICAgICAgIHJldHVybiBUcnVlCiAgICBleGNlcHQgSW1wb3J0RXJyb3I6CiAgICAgICAgcmV0dXJuIEZhbHNlCgoKZGVmIF9nZXRfc3ZjKCk6CiAgICBnbG9iYWwgX2dtYWlsX3N2YwogICAgd2l0aCBfZ21haWxfbG9jazoKICAgICAgICBpZiBfZ21haWxfc3ZjOgogICAgICAgICAgICByZXR1cm4gX2dtYWlsX3N2YwogICAgICAgIGZyb20gZ29vZ2xlLm9hdXRoMi5jcmVkZW50aWFscyBpbXBvcnQgQ3JlZGVudGlhbHMKICAgICAgICBmcm9tIGdvb2dsZV9hdXRoX29hdXRobGliLmZsb3cgaW1wb3J0IEluc3RhbGxlZEFwcEZsb3cKICAgICAgICBmcm9tIGdvb2dsZS5hdXRoLnRyYW5zcG9ydC5yZXF1ZXN0cyBpbXBvcnQgUmVxdWVzdCBhcyBHUmVxCiAgICAgICAgZnJvbSBnb29nbGVhcGljbGllbnQuZGlzY292ZXJ5IGltcG9ydCBidWlsZAoKICAgICAgICBjcmVkcyA9IE5vbmUKICAgICAgICBpZiBvcy5wYXRoLmV4aXN0cyhUT0tFTl9GSUxFKToKICAgICAgICAgICAgY3JlZHMgPSBDcmVkZW50aWFscy5mcm9tX2F1dGhvcml6ZWRfdXNlcl9maWxlKFRPS0VOX0ZJTEUsIFNDT1BFUykKICAgICAgICBpZiBub3QgY3JlZHMgb3Igbm90IGNyZWRzLnZhbGlkOgogICAgICAgICAgICBpZiBjcmVkcyBhbmQgY3JlZHMuZXhwaXJlZCBhbmQgY3JlZHMucmVmcmVzaF90b2tlbjoKICAgICAgICAgICAgICAgIGNyZWRzLnJlZnJlc2goR1JlcSgpKQogICAgICAgICAgICBlbHNlOgogICAgICAgICAgICAgICAgZmxvdyAgPSBJbnN0YWxsZWRBcHBGbG93LmZyb21fY2xpZW50X3NlY3JldHNfZmlsZShDUkVEU19GSUxFLCBTQ09QRVMpCiAgICAgICAgICAgICAgICBjcmVkcyA9IGZsb3cucnVuX2xvY2FsX3NlcnZlcihwb3J0PTApCiAgICAgICAgICAgIG9wZW4oVE9LRU5fRklMRSwgJ3cnKS53cml0ZShjcmVkcy50b19qc29uKCkpCiAgICAgICAgX2dtYWlsX3N2YyA9IGJ1aWxkKCdnbWFpbCcsICd2MScsIGNyZWRlbnRpYWxzPWNyZWRzKQogICAgICAgIHJldHVybiBfZ21haWxfc3ZjCgoKZGVmIF9mZXRjaChsaW1pdD0zMCwgZmxhZ2dlZD1GYWxzZSwgZm9sZGVyPSdJTkJPWCcpOgogICAgaW1wb3J0IGJhc2U2NAogICAgc3ZjID0gX2dldF9zdmMoKQogICAgcSAgID0gKCdpczpzdGFycmVkICcgaWYgZmxhZ2dlZCBlbHNlICcnKSArICgnaW46aW5ib3gnIGlmIGZvbGRlci51cHBlcigpPT0nSU5CT1gnIGVsc2UgZidpbjp7Zm9sZGVyfScpCiAgICByZXMgPSBzdmMudXNlcnMoKS5tZXNzYWdlcygpLmxpc3QodXNlcklkPSdtZScsIHE9cS5zdHJpcCgpLCBtYXhSZXN1bHRzPWxpbWl0KS5leGVjdXRlKCkKICAgIG91dCA9IFtdCiAgICBmb3IgcmVmIGluIHJlcy5nZXQoJ21lc3NhZ2VzJywgW10pOgogICAgICAgIHRyeToKICAgICAgICAgICAgbSAgPSBzdmMudXNlcnMoKS5tZXNzYWdlcygpLmdldCh1c2VySWQ9J21lJywgaWQ9cmVmWydpZCddLCBmb3JtYXQ9J2Z1bGwnKS5leGVjdXRlKCkKICAgICAgICAgICAgaGQgPSB7aFsnbmFtZSddOmhbJ3ZhbHVlJ10gZm9yIGggaW4gbVsncGF5bG9hZCddWydoZWFkZXJzJ119CiAgICAgICAgICAgIGZyID0gaGQuZ2V0KCdGcm9tJywnJykKICAgICAgICAgICAgc24sIHNlID0gKCcnLCcnKQogICAgICAgICAgICBpZiAnPCcgaW4gZnI6CiAgICAgICAgICAgICAgICBzbiA9IGZyLnNwbGl0KCc8JylbMF0uc3RyaXAoKS5zdHJpcCgnIicpCiAgICAgICAgICAgICAgICBzZSA9IGZyLnNwbGl0KCc8JylbMV0ucnN0cmlwKCc+JykKICAgICAgICAgICAgZWxzZToKICAgICAgICAgICAgICAgIHNlID0gZnIKICAgICAgICAgICAgdHJ5OgogICAgICAgICAgICAgICAgZnJvbSBlbWFpbC51dGlscyBpbXBvcnQgcGFyc2VkYXRlX3RvX2RhdGV0aW1lCiAgICAgICAgICAgICAgICBkdCA9IHBhcnNlZGF0ZV90b19kYXRldGltZShoZC5nZXQoJ0RhdGUnLCcnKSkKICAgICAgICAgICAgICAgIGRzID0gZHQuc3RyZnRpbWUoJyViICUtZCcpCiAgICAgICAgICAgIGV4Y2VwdCBFeGNlcHRpb246CiAgICAgICAgICAgICAgICBkcyA9IGhkLmdldCgnRGF0ZScsJycpWzoxMF0KCiAgICAgICAgICAgICMgRXh0cmFjdCBwbGFpbiB0ZXh0IGJvZHkKICAgICAgICAgICAgYm9keSA9ICcnCiAgICAgICAgICAgIGRlZiBfZ2V0X2JvZHkocGF5bG9hZCk6CiAgICAgICAgICAgICAgICBpZiBwYXlsb2FkLmdldCgnbWltZVR5cGUnKSA9PSAndGV4dC9wbGFpbicgYW5kIHBheWxvYWQuZ2V0KCdib2R5Jyx7fSkuZ2V0KCdkYXRhJyk6CiAgICAgICAgICAgICAgICAgICAgdHJ5OiByZXR1cm4gYmFzZTY0LnVybHNhZmVfYjY0ZGVjb2RlKHBheWxvYWRbJ2JvZHknXVsnZGF0YSddKS5kZWNvZGUoJ3V0Zi04JywncmVwbGFjZScpCiAgICAgICAgICAgICAgICAgICAgZXhjZXB0OiByZXR1cm4gJycKICAgICAgICAgICAgICAgIGZvciBwYXJ0IGluIHBheWxvYWQuZ2V0KCdwYXJ0cycsIFtdKToKICAgICAgICAgICAgICAgICAgICByID0gX2dldF9ib2R5KHBhcnQpCiAgICAgICAgICAgICAgICAgICAgaWYgcjogcmV0dXJuIHIKICAgICAgICAgICAgICAgIHJldHVybiAnJwogICAgICAgICAgICBib2R5ID0gX2dldF9ib2R5KG1bJ3BheWxvYWQnXSkKICAgICAgICAgICAgaWYgbm90IGJvZHk6CiAgICAgICAgICAgICAgICBib2R5ID0gbS5nZXQoJ3NuaXBwZXQnLCAnJykKICAgICAgICAgICAgIyBDbGVhbiB1cCBib2R5IOKAlCBub3JtYWxpemUgbGluZSBlbmRpbmdzIGFuZCB0cmltCiAgICAgICAgICAgIGJvZHkgPSBib2R5LnJlcGxhY2UoJ1xyXG4nLCdcbicpLnJlcGxhY2UoJ1xyJywnXG4nKQogICAgICAgICAgICAjIENvbGxhcHNlIDMrIGJsYW5rIGxpbmVzIHRvIDIKICAgICAgICAgICAgaW1wb3J0IHJlIGFzIF9yZTIKICAgICAgICAgICAgYm9keSA9IF9yZTIuc3ViKHInXG57Myx9JywgJ1xuXG4nLCBib2R5KS5zdHJpcCgpCiAgICAgICAgICAgIGJvZHkgPSBib2R5WzoyMDAwXSAgIyBjYXAgYXQgMjAwMCBjaGFycyBmb3IgcGVyZm9ybWFuY2UKCiAgICAgICAgICAgIG91dC5hcHBlbmQoewogICAgICAgICAgICAgICAgJ3VpZCc6ICAgICAgICAgcmVmWydpZCddLAogICAgICAgICAgICAgICAgJ3N1YmplY3QnOiAgICAgaGQuZ2V0KCdTdWJqZWN0JywnKG5vIHN1YmplY3QpJyksCiAgICAgICAgICAgICAgICAnc2VuZGVyJzogICAgICBzZSwKICAgICAgICAgICAgICAgICdzZW5kZXJfbmFtZSc6IHNuLAogICAgICAgICAgICAgICAgJ3ByZXZpZXcnOiAgICAgbS5nZXQoJ3NuaXBwZXQnLCcnKSwKICAgICAgICAgICAgICAgICdib2R5JzogICAgICAgIGJvZHksCiAgICAgICAgICAgICAgICAnZGF0ZSc6ICAgICAgICBkcywKICAgICAgICAgICAgICAgICdmbGFnZ2VkJzogICAgICdTVEFSUkVEJyBpbiBtLmdldCgnbGFiZWxJZHMnLFtdKSwKICAgICAgICAgICAgICAgICd0byc6ICAgICAgICAgIGhkLmdldCgnVG8nLCcnKSwKICAgICAgICAgICAgICAgICdyZXBseV90byc6ICAgIGhkLmdldCgnUmVwbHktVG8nLCBzZSksCiAgICAgICAgICAgICAgICAnbWVzc2FnZV9pZCc6ICBoZC5nZXQoJ01lc3NhZ2UtSUQnLCcnKSwKICAgICAgICAgICAgfSkKICAgICAgICBleGNlcHQgRXhjZXB0aW9uOgogICAgICAgICAgICBjb250aW51ZQogICAgcmV0dXJuIG91dAoKCmNsYXNzIFByb3h5SGFuZGxlcihCYXNlSFRUUFJlcXVlc3RIYW5kbGVyKToKCiAgICBkZWYgZG9fR0VUKHNlbGYpOgogICAgICAgIHBhdGggICA9IHVybHBhcnNlKHNlbGYucGF0aCkucGF0aAogICAgICAgIHBhcmFtcyA9IHBhcnNlX3FzKHVybHBhcnNlKHNlbGYucGF0aCkucXVlcnkpCgogICAgICAgIGlmIHBhdGggPT0gJy9waW5nJzoKICAgICAgICAgICAgc2VsZi5faih7J29rJzogVHJ1ZX0pCgogICAgICAgIGVsaWYgcGF0aCA9PSAnL2dtYWlsL3N0YXR1cyc6CiAgICAgICAgICAgIGF1dGggPSBGYWxzZQogICAgICAgICAgICBpZiBfbGlic19vaygpIGFuZCAob3MucGF0aC5leGlzdHMoVE9LRU5fRklMRSkgb3Igb3MucGF0aC5leGlzdHMoQ1JFRFNfRklMRSkpOgogICAgICAgICAgICAgICAgdHJ5OiBfZ2V0X3N2YygpOyBhdXRoID0gVHJ1ZQogICAgICAgICAgICAgICAgZXhjZXB0IEV4Y2VwdGlvbjogcGFzcwogICAgICAgICAgICBzZWxmLl9qKHsnaGFzX2NyZWRzJzogb3MucGF0aC5leGlzdHMoQ1JFRFNfRklMRSksCiAgICAgICAgICAgICAgICAgICAgICdoYXNfdG9rZW4nOiBvcy5wYXRoLmV4aXN0cyhUT0tFTl9GSUxFKSwKICAgICAgICAgICAgICAgICAgICAgJ2hhc19saWJzJzogIF9saWJzX29rKCksCiAgICAgICAgICAgICAgICAgICAgICdhdXRob3JpemVkJzogYXV0aH0pCgogICAgICAgIGVsaWYgcGF0aCA9PSAnL2dtYWlsL2F1dGgnOgogICAgICAgICAgICBpZiBub3Qgb3MucGF0aC5leGlzdHMoQ1JFRFNfRklMRSk6CiAgICAgICAgICAgICAgICBzZWxmLl9qKHsnZXJyb3InOiAnY3JlZGVudGlhbHMuanNvbiBub3QgZm91bmQg4oCUIGRyb3AgaXQgaW4gdGhlIE9FTCBmb2xkZXInfSwgNDAwKTsgcmV0dXJuCiAgICAgICAgICAgIGlmIG5vdCBfbGlic19vaygpOgogICAgICAgICAgICAgICAgc2VsZi5faih7J2Vycm9yJzogJ01pc3NpbmcgbGlicmFyaWVzLiBSdW46IHBpcCBpbnN0YWxsIGdvb2dsZS1hcGktcHl0aG9uLWNsaWVudCBnb29nbGUtYXV0aC1odHRwbGliMiBnb29nbGUtYXV0aC1vYXV0aGxpYid9LCA0MDApOyByZXR1cm4KICAgICAgICAgICAgdHJ5OgogICAgICAgICAgICAgICAgX2dldF9zdmMoKQogICAgICAgICAgICAgICAgc2VsZi5faih7J29rJzogVHJ1ZX0pCiAgICAgICAgICAgIGV4Y2VwdCBFeGNlcHRpb24gYXMgZToKICAgICAgICAgICAgICAgIHNlbGYuX2ooeydlcnJvcic6IHN0cihlKX0sIDUwMCkKCiAgICAgICAgZWxpZiBwYXRoID09ICcvZ21haWwvZmV0Y2gnOgogICAgICAgICAgICBpZiBub3QgX2xpYnNfb2soKToKICAgICAgICAgICAgICAgIHNlbGYuX2ooeydlcnJvcic6ICdHb29nbGUgQVBJIGxpYnJhcmllcyBub3QgaW5zdGFsbGVkJ30pOyByZXR1cm4KICAgICAgICAgICAgdHJ5OgogICAgICAgICAgICAgICAgZW1haWxzID0gX2ZldGNoKAogICAgICAgICAgICAgICAgICAgIGxpbWl0ICAgPSBpbnQocGFyYW1zLmdldCgnbGltaXQnLCBbJzMwJ10pWzBdKSwKICAgICAgICAgICAgICAgICAgICBmbGFnZ2VkID0gcGFyYW1zLmdldCgnZmxhZ2dlZCcsIFsnMCddKVswXSA9PSAnMScsCiAgICAgICAgICAgICAgICAgICAgZm9sZGVyICA9IHBhcmFtcy5nZXQoJ2ZvbGRlcicsIFsnSU5CT1gnXSlbMF0pCiAgICAgICAgICAgICAgICBzZWxmLl9qKHsnb2snOiBUcnVlLCAnZW1haWxzJzogZW1haWxzLCAnY291bnQnOiBsZW4oZW1haWxzKX0pCiAgICAgICAgICAgIGV4Y2VwdCBFeGNlcHRpb24gYXMgZToKICAgICAgICAgICAgICAgIHNlbGYuX2ooeydlcnJvcic6IHN0cihlKX0sIDUwMCkKCiAgICAgICAgZWxpZiBwYXRoID09ICcvZ21haWwvcmV2b2tlJzoKICAgICAgICAgICAgZ2xvYmFsIF9nbWFpbF9zdmMKICAgICAgICAgICAgaWYgb3MucGF0aC5leGlzdHMoVE9LRU5fRklMRSk6IG9zLnJlbW92ZShUT0tFTl9GSUxFKQogICAgICAgICAgICB3aXRoIF9nbWFpbF9sb2NrOiBfZ21haWxfc3ZjID0gTm9uZQogICAgICAgICAgICBzZWxmLl9qKHsnb2snOiBUcnVlfSkKCiAgICAgICAgZWxpZiBwYXRoID09ICcvaW5ib3gnOgogICAgICAgICAgICB3aXRoIF9pbmJveF9sb2NrOiBkYXRhID0gZGljdChfaW5ib3hfc3RvcmUpCiAgICAgICAgICAgIHNlbGYuX2ooZGF0YSkKCiAgICAgICAgZWxpZiBwYXRoID09ICcvaW5ib3gvcHVzaCc6CiAgICAgICAgICAgIGVuYyA9IHBhcmFtcy5nZXQoJ2QnLCBbTm9uZV0pWzBdCiAgICAgICAgICAgIGlmIGVuYzoKICAgICAgICAgICAgICAgIHRyeToKICAgICAgICAgICAgICAgICAgICBkYXRhID0ganNvbi5sb2FkcyhiYXNlNjQuYjY0ZGVjb2RlKGVuYy5lbmNvZGUoKSkuZGVjb2RlKCd1dGYtOCcsJ3JlcGxhY2UnKSkKICAgICAgICAgICAgICAgICAgICB3aXRoIF9pbmJveF9sb2NrOiBfaW5ib3hfc3RvcmUuY2xlYXIoKTsgX2luYm94X3N0b3JlLnVwZGF0ZShkYXRhKQogICAgICAgICAgICAgICAgICAgIGh0bWwgPSBiJzxodG1sPjxib2R5IHN0eWxlPSJmb250LWZhbWlseTpzYW5zLXNlcmlmO3BhZGRpbmc6MzBweDtiYWNrZ3JvdW5kOiMxYTFhMWE7Y29sb3I6I2M4ZjA0ZSI+PGgyPiYjMTAwMDM7IEVtYWlscyByZWNlaXZlZDwvaDI+PHAgc3R5bGU9ImNvbG9yOiM4ODgiPk9FTCBoYXMgeW91ciBlbWFpbHMuIFlvdSBjYW4gY2xvc2UgdGhpcyB0YWIuPC9wPjxzY3JpcHQ+c2V0VGltZW91dChmdW5jdGlvbigpe3dpbmRvdy5jbG9zZSgpO30sMTUwMCk7PC9zY3JpcHQ+PC9ib2R5PjwvaHRtbD4nCiAgICAgICAgICAgICAgICAgICAgc2VsZi5zZW5kX3Jlc3BvbnNlKDIwMCk7IHNlbGYuX2NvcnMoKQogICAgICAgICAgICAgICAgICAgIHNlbGYuc2VuZF9oZWFkZXIoJ0NvbnRlbnQtVHlwZScsJ3RleHQvaHRtbCcpOyBzZWxmLnNlbmRfaGVhZGVyKCdDb250ZW50LUxlbmd0aCcsbGVuKGh0bWwpKTsgc2VsZi5lbmRfaGVhZGVycygpOyBzZWxmLndmaWxlLndyaXRlKGh0bWwpOyByZXR1cm4KICAgICAgICAgICAgICAgIGV4Y2VwdCBFeGNlcHRpb246IHBhc3MKICAgICAgICAgICAgc2VsZi5zZW5kX3Jlc3BvbnNlKDQwMCk7IHNlbGYuZW5kX2hlYWRlcnMoKQoKICAgICAgICBlbHNlOgogICAgICAgICAgICBzZWxmLnNlbmRfcmVzcG9uc2UoNDA0KTsgc2VsZi5lbmRfaGVhZGVycygpCgogICAgZGVmIGRvX09QVElPTlMoc2VsZik6CiAgICAgICAgc2VsZi5zZW5kX3Jlc3BvbnNlKDIwMCk7IHNlbGYuX2NvcnMoKTsgc2VsZi5lbmRfaGVhZGVycygpCgogICAgZGVmIGRvX1BPU1Qoc2VsZik6CiAgICAgICAgcGF0aCAgID0gdXJscGFyc2Uoc2VsZi5wYXRoKS5wYXRoCiAgICAgICAgcGFyYW1zID0gcGFyc2VfcXModXJscGFyc2Uoc2VsZi5wYXRoKS5xdWVyeSkKICAgICAgICBsZW5ndGggPSBpbnQoc2VsZi5oZWFkZXJzLmdldCgnQ29udGVudC1MZW5ndGgnLCAwKSkKICAgICAgICBib2R5ICAgPSBzZWxmLnJmaWxlLnJlYWQobGVuZ3RoKQoKICAgICAgICBpZiBwYXRoID09ICcvaW5ib3gnOgogICAgICAgICAgICB0cnk6CiAgICAgICAgICAgICAgICBkYXRhID0ganNvbi5sb2Fkcyhib2R5LmRlY29kZSgndXRmLTgnLCdyZXBsYWNlJykpCiAgICAgICAgICAgICAgICB3aXRoIF9pbmJveF9sb2NrOiBfaW5ib3hfc3RvcmUuY2xlYXIoKTsgX2luYm94X3N0b3JlLnVwZGF0ZShkYXRhKQogICAgICAgICAgICAgICAgc2VsZi5faih7J29rJzogVHJ1ZSwgJ2NvdW50JzogbGVuKGRhdGEuZ2V0KCdlbWFpbHMnLFtdKSl9KQogICAgICAgICAgICBleGNlcHQgRXhjZXB0aW9uIGFzIGU6CiAgICAgICAgICAgICAgICBzZWxmLl9qKHsnZXJyb3InOiBzdHIoZSl9LCA0MDApCiAgICAgICAgZWxpZiBwYXRoID09ICcvaW5ib3gvY2xlYXInOgogICAgICAgICAgICB3aXRoIF9pbmJveF9sb2NrOiBfaW5ib3hfc3RvcmUuY2xlYXIoKQogICAgICAgICAgICBzZWxmLl9qKHsnb2snOiBUcnVlfSkKICAgICAgICBlbHNlOgogICAgICAgICAgICB0YXJnZXQgPSBwYXJhbXMuZ2V0KCd1cmwnLCBbTm9uZV0pWzBdCiAgICAgICAgICAgIGlmIG5vdCB0YXJnZXQ6IHNlbGYuc2VuZF9yZXNwb25zZSg0MDApOyBzZWxmLmVuZF9oZWFkZXJzKCk7IHJldHVybgogICAgICAgICAgICB0cnk6CiAgICAgICAgICAgICAgICByZXEgPSBSZXF1ZXN0KHRhcmdldCwgZGF0YT1ib2R5LCBoZWFkZXJzPXsnQ29udGVudC1UeXBlJzondGV4dC94bWwnfSkKICAgICAgICAgICAgICAgIHdpdGggdXJsb3BlbihyZXEsIHRpbWVvdXQ9MTUpIGFzIHI6IGRhdGEgPSByLnJlYWQoKQogICAgICAgICAgICAgICAgc2VsZi5zZW5kX3Jlc3BvbnNlKDIwMCk7IHNlbGYuX2NvcnMoKQogICAgICAgICAgICAgICAgc2VsZi5zZW5kX2hlYWRlcignQ29udGVudC1UeXBlJywndGV4dC94bWwnKTsgc2VsZi5lbmRfaGVhZGVycygpOyBzZWxmLndmaWxlLndyaXRlKGRhdGEpCiAgICAgICAgICAgIGV4Y2VwdCB1cmxsaWIuZXJyb3IuVVJMRXJyb3IgYXMgZToKICAgICAgICAgICAgICAgIHNlbGYuc2VuZF9yZXNwb25zZSg1MDIpOyBzZWxmLl9jb3JzKCk7IHNlbGYuZW5kX2hlYWRlcnMoKTsgc2VsZi53ZmlsZS53cml0ZShzdHIoZSkuZW5jb2RlKCkpCgogICAgZGVmIF9qKHNlbGYsIG9iaiwgc3RhdHVzPTIwMCk6CiAgICAgICAgYiA9IGpzb24uZHVtcHMob2JqKS5lbmNvZGUoKQogICAgICAgIHNlbGYuc2VuZF9yZXNwb25zZShzdGF0dXMpOyBzZWxmLl9jb3JzKCkKICAgICAgICBzZWxmLnNlbmRfaGVhZGVyKCdDb250ZW50LVR5cGUnLCdhcHBsaWNhdGlvbi9qc29uJyk7IHNlbGYuc2VuZF9oZWFkZXIoJ0NvbnRlbnQtTGVuZ3RoJyxsZW4oYikpOyBzZWxmLmVuZF9oZWFkZXJzKCk7IHNlbGYud2ZpbGUud3JpdGUoYikKCiAgICBkZWYgX2NvcnMoc2VsZik6CiAgICAgICAgc2VsZi5zZW5kX2hlYWRlcignQWNjZXNzLUNvbnRyb2wtQWxsb3ctT3JpZ2luJywnKicpCiAgICAgICAgc2VsZi5zZW5kX2hlYWRlcignQWNjZXNzLUNvbnRyb2wtQWxsb3ctTWV0aG9kcycsJ0dFVCwgUE9TVCwgT1BUSU9OUycpCiAgICAgICAgc2VsZi5zZW5kX2hlYWRlcignQWNjZXNzLUNvbnRyb2wtQWxsb3ctSGVhZGVycycsJ0NvbnRlbnQtVHlwZScpCgogICAgZGVmIGxvZ19tZXNzYWdlKHNlbGYsIGZtdCwgKmFyZ3MpOiBwYXNzCgoKaWYgX19uYW1lX18gPT0gJ19fbWFpbl9fJzoKICAgIEhUVFBTZXJ2ZXIoKCdsb2NhbGhvc3QnLCBQT1JUKSwgUHJveHlIYW5kbGVyKS5zZXJ2ZV9mb3JldmVyKCkK"),c=>c.charCodeAt(0))); }
+function oelGetImapServerPy() { return new TextDecoder().decode(Uint8Array.from(atob("IyEvdXNyL2Jpbi9lbnYgcHl0aG9uMwoiIiIKT2RvbyBFbWFpbCBMaW5rIC0gTGVhZCBDYXB0dXJlIFNlcnZlcgpSdW5zIG9uIGh0dHA6Ly9sb2NhbGhvc3Q6Nzg0MwpTdGFydCB3aXRoOiBweXRob24gaW1hcF9zZXJ2ZXIucHkKCkFsc28gYXV0by1zdGFydHMgc2VydmVyLnB5IChDT1JTIHByb3h5IG9uIHBvcnQgNzg0MikgaWYgbm90IGFscmVhZHkgcnVubmluZy4KIiIiCgpmcm9tIGh0dHAuc2VydmVyIGltcG9ydCBCYXNlSFRUUFJlcXVlc3RIYW5kbGVyLCBUaHJlYWRpbmdIVFRQU2VydmVyCmZyb20gdXJsbGliLnBhcnNlIGltcG9ydCB1cmxwYXJzZQppbXBvcnQganNvbiwgaW1hcGxpYiwgZW1haWwsIHNzbCwgc3lzLCBvcywgc3VicHJvY2VzcywgdGltZSwgdGhyZWFkaW5nLCByZQppbXBvcnQgdXJsbGliLnJlcXVlc3QgYXMgX3JlcQppbXBvcnQgdXJsbGliLmVycm9yICAgYXMgX2Vycgpmcm9tIGVtYWlsLmhlYWRlciBpbXBvcnQgZGVjb2RlX2hlYWRlcgpmcm9tIGRhdGV0aW1lIGltcG9ydCBkYXRldGltZSwgdGltZWRlbHRhCgpQT1JUICAgICAgID0gNzg0MwpQUk9YWV9QT1JUID0gNzg0MgpHUk9RX0VORFBPSU5UID0gJ2h0dHBzOi8vYXBpLmdyb3EuY29tL29wZW5haS92MS9jaGF0L2NvbXBsZXRpb25zJwpHUk9RX01PREVMICAgID0gJ2xsYW1hLTMuMy03MGItdmVyc2F0aWxlJwoKIyDilIDilIDilIAgU2NhbiBwcm9ncmVzcyAocG9sbGVkIHZpYSBHRVQgL3N0YXR1cykg4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSACgpfbG9jayAgICAgPSB0aHJlYWRpbmcuTG9jaygpCl9wcm9ncmVzcyA9IHsncnVubmluZyc6IEZhbHNlLCAnc3RhZ2UnOiAnaWRsZScsICd0b3RhbCc6IDAsCiAgICAgICAgICAgICAnc2Nhbm5lZCc6IDAsICdtYXRjaGVkJzogMCwgJ21lc3NhZ2UnOiAnJywgJ3RzJzogMH0KX2NhbmNlbF9yZXF1ZXN0ZWQgPSBGYWxzZQoKZGVmIHNwKCoqa3cpOgogICAgd2l0aCBfbG9jazoKICAgICAgICBrd1sndHMnXSA9IHRpbWUudGltZSgpCiAgICAgICAgX3Byb2dyZXNzLnVwZGF0ZShrdykKCmRlZiBncCgpOgogICAgd2l0aCBfbG9jazoKICAgICAgICByZXR1cm4gZGljdChfcHJvZ3Jlc3MpCgojIOKUgOKUgOKUgCBFbWFpbCBoZWxwZXJzIOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgAoKZGVmIGRlY29kZV9taW1lKHZhbHVlKToKICAgIGlmIG5vdCB2YWx1ZToKICAgICAgICByZXR1cm4gJycKICAgIHBhcnRzID0gZGVjb2RlX2hlYWRlcih2YWx1ZSkKICAgIG91dCA9IFtdCiAgICBmb3IgcmF3LCBlbmMgaW4gcGFydHM6CiAgICAgICAgaWYgaXNpbnN0YW5jZShyYXcsIGJ5dGVzKToKICAgICAgICAgICAgb3V0LmFwcGVuZChyYXcuZGVjb2RlKGVuYyBvciAndXRmLTgnLCBlcnJvcnM9J3JlcGxhY2UnKSkKICAgICAgICBlbHNlOgogICAgICAgICAgICBvdXQuYXBwZW5kKHN0cihyYXcpKQogICAgcmV0dXJuICcgJy5qb2luKG91dCkKCmRlZiBzdHJpcF9odG1sKHRleHQpOgogICAgdGV4dCA9IHJlLnN1YihyJzwoc3R5bGV8c2NyaXB0KVtePl0qPi4qPzwvXDE+JywgJycsIHRleHQsIGZsYWdzPXJlLkRPVEFMTCB8IHJlLklHTk9SRUNBU0UpCiAgICB0ZXh0ID0gcmUuc3ViKHInPChicnxwfGRpdnx0cnxsaXxoWzEtNl0pXGJbXj5dKj4nLCAnXG4nLCB0ZXh0LCBmbGFncz1yZS5JR05PUkVDQVNFKQogICAgdGV4dCA9IHJlLnN1YihyJzwvKHB8ZGl2fHRyfGxpfGhbMS02XSk+JywgJ1xuJywgdGV4dCwgZmxhZ3M9cmUuSUdOT1JFQ0FTRSkKICAgIHRleHQgPSByZS5zdWIocic8W14+XSs+JywgJycsIHRleHQpCiAgICBmb3IgZW50LCBjaCBpbiBbKCcmYW1wOycsJyYnKSwoJyZsdDsnLCc8JyksKCcmZ3Q7JywnPicpLCgnJm5ic3A7JywnICcpLAogICAgICAgICAgICAgICAgICAgICgnJnF1b3Q7JywnIicpLCgnJiMzOTsnLCInIiksKCcmbmRhc2g7Jywn4oCTJyksKCcmbWRhc2g7Jywn4oCUJyldOgogICAgICAgIHRleHQgPSB0ZXh0LnJlcGxhY2UoZW50LCBjaCkKICAgIHRleHQgPSByZS5zdWIocidcbnszLH0nLCAnXG5cbicsIHRleHQpCiAgICByZXR1cm4gdGV4dC5zdHJpcCgpCgpkZWYgZ2V0X3RleHRfYm9keShtc2cpOgogICAgIiIiRXh0cmFjdCBwbGFpbiB0ZXh0LCBwcmVmZXJyaW5nIHRleHQvcGxhaW4gYnV0IHN0cmlwcGluZyBIVE1MIGlmIG5lZWRlZC4iIiIKICAgIHBsYWluID0gaHRtbCA9IE5vbmUKICAgIGlmIG1zZy5pc19tdWx0aXBhcnQoKToKICAgICAgICBmb3IgcGFydCBpbiBtc2cud2FsaygpOgogICAgICAgICAgICBjdCA9IHBhcnQuZ2V0X2NvbnRlbnRfdHlwZSgpCiAgICAgICAgICAgIGNkID0gc3RyKHBhcnQuZ2V0KCdDb250ZW50LURpc3Bvc2l0aW9uJywgJycpKQogICAgICAgICAgICBpZiAnYXR0YWNobWVudCcgaW4gY2Q6CiAgICAgICAgICAgICAgICBjb250aW51ZQogICAgICAgICAgICBpZiBjdCA9PSAndGV4dC9wbGFpbicgYW5kIHBsYWluIGlzIE5vbmU6CiAgICAgICAgICAgICAgICBjaGFyc2V0ID0gcGFydC5nZXRfY29udGVudF9jaGFyc2V0KCkgb3IgJ3V0Zi04JwogICAgICAgICAgICAgICAgcGxhaW4gPSBwYXJ0LmdldF9wYXlsb2FkKGRlY29kZT1UcnVlKS5kZWNvZGUoY2hhcnNldCwgZXJyb3JzPSdyZXBsYWNlJykKICAgICAgICAgICAgZWxpZiBjdCA9PSAndGV4dC9odG1sJyBhbmQgaHRtbCBpcyBOb25lOgogICAgICAgICAgICAgICAgY2hhcnNldCA9IHBhcnQuZ2V0X2NvbnRlbnRfY2hhcnNldCgpIG9yICd1dGYtOCcKICAgICAgICAgICAgICAgIGh0bWwgPSBwYXJ0LmdldF9wYXlsb2FkKGRlY29kZT1UcnVlKS5kZWNvZGUoY2hhcnNldCwgZXJyb3JzPSdyZXBsYWNlJykKICAgIGVsc2U6CiAgICAgICAgY2hhcnNldCA9IG1zZy5nZXRfY29udGVudF9jaGFyc2V0KCkgb3IgJ3V0Zi04JwogICAgICAgIHJhdyA9IG1zZy5nZXRfcGF5bG9hZChkZWNvZGU9VHJ1ZSkuZGVjb2RlKGNoYXJzZXQsIGVycm9ycz0ncmVwbGFjZScpCiAgICAgICAgaWYgbXNnLmdldF9jb250ZW50X3R5cGUoKSA9PSAndGV4dC9odG1sJzoKICAgICAgICAgICAgaHRtbCA9IHJhdwogICAgICAgIGVsc2U6CiAgICAgICAgICAgIHBsYWluID0gcmF3CiAgICBpZiBwbGFpbiBhbmQgcGxhaW4uc3RyaXAoKToKICAgICAgICByZXR1cm4gcGxhaW4KICAgIGlmIGh0bWw6CiAgICAgICAgcmV0dXJuIHN0cmlwX2h0bWwoaHRtbCkKICAgIHJldHVybiAnJwoKIyDilIDilIDilIAgSU1BUCDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIAKCmRlZiBjb25uZWN0X2ltYXAoY29uZmlnKToKICAgIGN0eCAgPSBzc2wuY3JlYXRlX2RlZmF1bHRfY29udGV4dCgpCiAgICBjb25uID0gaW1hcGxpYi5JTUFQNF9TU0woY29uZmlnWydob3N0J10sIGludChjb25maWcuZ2V0KCdwb3J0JywgOTkzKSksIHNzbF9jb250ZXh0PWN0eCkKICAgIGNvbm4ubG9naW4oY29uZmlnWydlbWFpbCddLCBjb25maWdbJ3Bhc3N3b3JkJ10pCiAgICByZXR1cm4gY29ubgoKZGVmIGltYXBfdGVzdChjb25maWcpOgogICAgdHJ5OgogICAgICAgIGNvbm4gPSBjb25uZWN0X2ltYXAoY29uZmlnKQogICAgICAgIHN0YXR1cywgZGF0YSA9IGNvbm4uc2VsZWN0KCdJTkJPWCcsIHJlYWRvbmx5PVRydWUpCiAgICAgICAgY291bnQgPSBpbnQoZGF0YVswXSkgaWYgc3RhdHVzID09ICdPSycgZWxzZSAwCiAgICAgICAgY29ubi5sb2dvdXQoKQogICAgICAgIHJldHVybiB7J29rJzogVHJ1ZSwgJ21lc3NhZ2UnOiBmJ0Nvbm5lY3RlZC4ge2NvdW50fSBtZXNzYWdlcyBpbiBJTkJPWC4nfQogICAgZXhjZXB0IGltYXBsaWIuSU1BUDQuZXJyb3IgYXMgZToKICAgICAgICByZXR1cm4geydvayc6IEZhbHNlLCAnbWVzc2FnZSc6IGYnSU1BUCBhdXRoIGVycm9yOiB7ZX0nfQogICAgZXhjZXB0IEV4Y2VwdGlvbiBhcyBlOgogICAgICAgIHJldHVybiB7J29rJzogRmFsc2UsICdtZXNzYWdlJzogc3RyKGUpfQoKIyDilIDilIDilIAgR3JvcSBleHRyYWN0aW9uIOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgAoKZGVmIGdyb3FfZXh0cmFjdChib2R5X3RleHQsIGFpX2hpbnQ9JycsIGdyb3Ffa2V5PScnKToKICAgICIiIkNhbGwgR3JvcSB0byBleHRyYWN0IGxlYWQgZmllbGRzIGZyb20gZW1haWwgYm9keS4gUmV0dXJucyBkaWN0LiIiIgogICAgaWYgbm90IGdyb3Ffa2V5OgogICAgICAgIHJldHVybiB7J2N1c3RvbWVyX25hbWUnOicnLCAncGhvbmUnOicnLCAnZW1haWwnOicnLCAnbm90ZXMnOicnLAogICAgICAgICAgICAgICAgJ2Vycm9yJzogJ05vIEdyb3Ega2V5IOKAlCBhZGQgaXQgaW4gU3RlcCAxIGNyZWRlbnRpYWxzJ30KCiAgICBoaW50ID0gZidcblxuTm90ZToge2FpX2hpbnR9JyBpZiBhaV9oaW50IGVsc2UgJycKICAgIHN5c3RlbV9tc2cgPSAoCiAgICAgICAgJ1lvdSBhcmUgYSBsZWFkIGRhdGEgZXh0cmFjdG9yLiBSZWFkIHRoZSBlbWFpbCBhbmQgcmV0dXJuIE9OTFkgYSBKU09OIG9iamVjdCAnCiAgICAgICAgJ3dpdGggZXhhY3RseSB0aGVzZSBrZXlzOiAiY3VzdG9tZXJfbmFtZSIsICJwaG9uZSIsICJlbWFpbCIsICJub3RlcyIuICcKICAgICAgICAnY3VzdG9tZXJfbmFtZTogZnVsbCBuYW1lIG9mIHRoZSBjYWxsZXIgb3IgY3VzdG9tZXIgKG9mdGVuIGluIEFMTCBDQVBTIGluIGNhbGwgYWxlcnRzKS4gJwogICAgICAgICdwaG9uZTogcGhvbmUgbnVtYmVyIGV4YWN0bHkgYXMgc2hvd24uICcKICAgICAgICAnZW1haWw6IGVtYWlsIGFkZHJlc3MgaWYgcHJlc2VudCwgZWxzZSBlbXB0eSBzdHJpbmcuICcKICAgICAgICAnbm90ZXM6IDEtMyBzZW50ZW5jZSBzdW1tYXJ5IG9mIHdoeSB0aGV5IGNhbGxlZCBvciB3aGF0IHRoZXkgbmVlZC4gJwogICAgICAgICdJZiBhIGZpZWxkIGlzIG5vdCBmb3VuZCB1c2UgYW4gZW1wdHkgc3RyaW5nLiAnCiAgICAgICAgJ1JldHVybiBPTkxZIHRoZSByYXcgSlNPTiDigJQgbm8gbWFya2Rvd24sIG5vIGJhY2t0aWNrcywgbm8gZXhwbGFuYXRpb24uJyArIGhpbnQKICAgICkKCiAgICBwYXlsb2FkID0ganNvbi5kdW1wcyh7CiAgICAgICAgJ21vZGVsJzogR1JPUV9NT0RFTCwKICAgICAgICAnbWF4X3Rva2Vucyc6IDQwMCwKICAgICAgICAndGVtcGVyYXR1cmUnOiAwLAogICAgICAgICdtZXNzYWdlcyc6IFsKICAgICAgICAgICAgeydyb2xlJzogJ3N5c3RlbScsICdjb250ZW50Jzogc3lzdGVtX21zZ30sCiAgICAgICAgICAgIHsncm9sZSc6ICd1c2VyJywgICAnY29udGVudCc6IGJvZHlfdGV4dFs6NjAwMF19LAogICAgICAgIF0KICAgIH0pLmVuY29kZSgpCgogICAgcmVxdWVzdCA9IF9yZXEuUmVxdWVzdChHUk9RX0VORFBPSU5ULCBkYXRhPXBheWxvYWQsIGhlYWRlcnM9ewogICAgICAgICdDb250ZW50LVR5cGUnOiAgJ2FwcGxpY2F0aW9uL2pzb24nLAogICAgICAgICdBdXRob3JpemF0aW9uJzogZidCZWFyZXIge2dyb3Ffa2V5fScsCiAgICAgICAgJ1VzZXItQWdlbnQnOiAgICAnTW96aWxsYS81LjAgKFdpbmRvd3MgTlQgMTAuMDsgV2luNjQ7IHg2NCkgQXBwbGVXZWJLaXQvNTM3LjM2IChLSFRNTCwgbGlrZSBHZWNrbykgQ2hyb21lLzEyMC4wLjAuMCBTYWZhcmkvNTM3LjM2JywKICAgICAgICAnQWNjZXB0JzogICAgICAgICdhcHBsaWNhdGlvbi9qc29uJywKICAgIH0pCiAgICB0cnk6CiAgICAgICAgd2l0aCBfcmVxLnVybG9wZW4ocmVxdWVzdCwgdGltZW91dD0yNSkgYXMgcmVzcDoKICAgICAgICAgICAgZGF0YSA9IGpzb24ubG9hZHMocmVzcC5yZWFkKCkpCiAgICAgICAgcmF3ID0gZGF0YVsnY2hvaWNlcyddWzBdWydtZXNzYWdlJ11bJ2NvbnRlbnQnXS5zdHJpcCgpCiAgICAgICAgIyBTdHJpcCBhY2NpZGVudGFsIG1hcmtkb3duIGZlbmNlcwogICAgICAgIHJhdyA9IHJlLnN1YihyJ15gYGAoPzpqc29uKT9ccyonLCAnJywgcmF3KQogICAgICAgIHJhdyA9IHJlLnN1YihyJ1xzKmBgYCQnLCAnJywgcmF3KQogICAgICAgIHJlc3VsdCA9IGpzb24ubG9hZHMocmF3LnN0cmlwKCkpCiAgICAgICAgcmVzdWx0LnNldGRlZmF1bHQoJ2N1c3RvbWVyX25hbWUnLCAnJykKICAgICAgICByZXN1bHQuc2V0ZGVmYXVsdCgncGhvbmUnLCAnJykKICAgICAgICByZXN1bHQuc2V0ZGVmYXVsdCgnZW1haWwnLCAnJykKICAgICAgICByZXN1bHQuc2V0ZGVmYXVsdCgnbm90ZXMnLCAnJykKICAgICAgICByZXR1cm4gcmVzdWx0CiAgICBleGNlcHQgX2Vyci5IVFRQRXJyb3IgYXMgZToKICAgICAgICBib2R5ID0gZS5yZWFkKCkuZGVjb2RlKGVycm9ycz0ncmVwbGFjZScpCiAgICAgICAgcmV0dXJuIHsnY3VzdG9tZXJfbmFtZSc6JycsJ3Bob25lJzonJywnZW1haWwnOicnLCdub3Rlcyc6JycsCiAgICAgICAgICAgICAgICAnZXJyb3InOiBmJ0dyb3EgSFRUUCB7ZS5jb2RlfToge2JvZHlbOjIwMF19J30KICAgIGV4Y2VwdCBFeGNlcHRpb24gYXMgZToKICAgICAgICByZXR1cm4geydjdXN0b21lcl9uYW1lJzonJywncGhvbmUnOicnLCdlbWFpbCc6JycsJ25vdGVzJzonJywKICAgICAgICAgICAgICAgICdlcnJvcic6IHN0cihlKX0KCiMg4pSA4pSA4pSAIE1haW4gc2NhbiDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIAKCmRlZiBpbWFwX2ZldGNoKGNvbmZpZywgc3BlY3MsIGRheXM9MTQpOgogICAgIiIiCiAgICBUd28tcGFzcyBJTUFQIHNjYW4uIFJldHVybnMgbWF0Y2hlZCBlbWFpbHMgd2l0aCBmdWxsIGJvZHkgdGV4dC4KICAgIEdyb3EgZXh0cmFjdGlvbiBoYXBwZW5zIGluIHRoZSBicm93c2VyIGFmdGVyIHRoaXMgcmV0dXJucy4KICAgICIiIgogICAgc3AocnVubmluZz1UcnVlLCBzdGFnZT0nY29ubmVjdGluZycsIHRvdGFsPTAsIHNjYW5uZWQ9MCwgbWF0Y2hlZD0wLAogICAgICAgbWVzc2FnZT0nQ29ubmVjdGluZyB0byBtYWlsYm944oCmJykKICAgIHJlc3VsdHMgICAgICAgPSBbXQogICAgc2Vlbl9zdWJqZWN0cyA9IFtdCiAgICB0b3RhbCAgICAgICAgID0gMAogICAgY2FuZGlkYXRlcyAgICA9IFtdCgogICAgdHJ5OgogICAgICAgIGNvbm4gPSBjb25uZWN0X2ltYXAoY29uZmlnKQogICAgICAgIGNvbm4uc2VsZWN0KCdJTkJPWCcsIHJlYWRvbmx5PVRydWUpCgogICAgICAgIHNpbmNlX2RhdGUgPSAoZGF0ZXRpbWUubm93KCkgLSB0aW1lZGVsdGEoZGF5cz1pbnQoZGF5cykpKS5zdHJmdGltZSgnJWQtJWItJVknKQogICAgICAgIHNwKHN0YWdlPSdzZWFyY2hpbmcnLCBtZXNzYWdlPWYnU2VhcmNoaW5nIGluYm94IHNpbmNlIHtzaW5jZV9kYXRlfeKApicpCiAgICAgICAgc3RhdHVzLCB1aWRzID0gY29ubi51aWQoJ3NlYXJjaCcsIE5vbmUsIGYnU0lOQ0Uge3NpbmNlX2RhdGV9JykKICAgICAgICBpZiBzdGF0dXMgIT0gJ09LJyBvciBub3QgdWlkc1swXToKICAgICAgICAgICAgY29ubi5sb2dvdXQoKQogICAgICAgICAgICBzcChydW5uaW5nPUZhbHNlLCBzdGFnZT0nZG9uZScsIG1lc3NhZ2U9J05vIG1lc3NhZ2VzIGluIGRhdGUgd2luZG93LicpCiAgICAgICAgICAgIHJldHVybiB7J2xlYWRzJzogW10sICdkZWJ1Zyc6IHsndG90YWwnOiAwLCAnY2FuZGlkYXRlcyc6IDAsICdzZWVuX3N1YmplY3RzJzogW119fQoKICAgICAgICB1aWRfbGlzdCA9IHVpZHNbMF0uc3BsaXQoKQogICAgICAgIHRvdGFsX3JhdyA9IGxlbih1aWRfbGlzdCkKCiAgICAgICAgIyBZYWhvbyBJTUFQIHNvbWV0aW1lcyBpZ25vcmVzIFNJTkNFIOKAlCBhcHBseSBhIFB5dGhvbi1zaWRlIGRhdGUgY3V0b2ZmIHRvbwogICAgICAgIGN1dG9mZl9kdCA9IGRhdGV0aW1lLm5vdygpIC0gdGltZWRlbHRhKGRheXM9aW50KGRheXMpKQogICAgICAgIHNwKHN0YWdlPSdoZWFkZXJzJywgdG90YWw9dG90YWxfcmF3LCBzY2FubmVkPTAsCiAgICAgICAgICAgbWVzc2FnZT1mJ0ZvdW5kIHt0b3RhbF9yYXd9IG1lc3NhZ2VzIOKAlCBhcHBseWluZyB7ZGF5c30tZGF5IGRhdGUgZmlsdGVy4oCmJykKCiAgICAgICAgIyBWYWxpZGF0ZSBzcGVjcyBoYXZlIGF0IGxlYXN0IG9uZSBmaWx0ZXIKICAgICAgICBmb3Igc3BlYyBpbiBzcGVjczoKICAgICAgICAgICAgaWYgbm90IGFueShbc3BlYy5nZXQoJ3N1YmplY3RfY29udGFpbnMnLCcnKS5zdHJpcCgpLCBzcGVjLmdldCgnc3ViamVjdF9leGFjdCcsJycpLnN0cmlwKCksCiAgICAgICAgICAgICAgICAgICAgICAgIHNwZWMuZ2V0KCdmcm9tX2NvbnRhaW5zJywnJykuc3RyaXAoKSwgICAgc3BlYy5nZXQoJ2Zyb21fZG9tYWluJywnJykuc3RyaXAoKSwKICAgICAgICAgICAgICAgICAgICAgICAgc3BlYy5nZXQoJ2Zyb21fZXhhY3QnLCcnKS5zdHJpcCgpXSk6CiAgICAgICAgICAgICAgICBlcnIgPSBmJ1NwZWMgIntzcGVjLmdldCgibmFtZSIsIj8iKX0iIGhhcyBubyBTdWJqZWN0IG9yIFNlbmRlciBmaWx0ZXIuIEFkZCBvbmUgYW5kIHNhdmUuJwogICAgICAgICAgICAgICAgc3AocnVubmluZz1GYWxzZSwgc3RhZ2U9J2Vycm9yJywgbWVzc2FnZT1lcnIpCiAgICAgICAgICAgICAgICByZXR1cm4geydsZWFkcyc6IFt7J2Vycm9yJzogZXJyfV0sICdkZWJ1Zyc6IHt9fQoKICAgICAgICAjIOKUgOKUgCBQYXNzIDE6IGhlYWRlcnMgb25seSDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIAKICAgICAgICBjYW5kaWRhdGVzICAgPSBbXQogICAgICAgIGZpbHRlcmVkX291dCA9IDAKICAgICAgICBmcm9tIGVtYWlsLnV0aWxzIGltcG9ydCBwYXJzZWRhdGVfdG9fZGF0ZXRpbWUgYXMgX3BhcnNlX2R0CiAgICAgICAgaW1wb3J0IGRhdGV0aW1lIGFzIF9kdAoKICAgICAgICBmb3IgaSwgdWlkIGluIGVudW1lcmF0ZSh1aWRfbGlzdCk6CiAgICAgICAgICAgIGdsb2JhbCBfY2FuY2VsX3JlcXVlc3RlZAogICAgICAgICAgICBpZiBfY2FuY2VsX3JlcXVlc3RlZDoKICAgICAgICAgICAgICAgIF9jYW5jZWxfcmVxdWVzdGVkID0gRmFsc2UKICAgICAgICAgICAgICAgIGNvbm4ubG9nb3V0KCkKICAgICAgICAgICAgICAgIHNwKHJ1bm5pbmc9RmFsc2UsIHN0YWdlPSdkb25lJywgbWVzc2FnZT0nU2NhbiBjYW5jZWxsZWQgYnkgdXNlci4nKQogICAgICAgICAgICAgICAgcmV0dXJuIHsnbGVhZHMnOiBbXSwgJ2RlYnVnJzogeyd0b3RhbCc6IHRvdGFsX3JhdywgJ2NhbmRpZGF0ZXMnOiAwLCAnc2Vlbl9zdWJqZWN0cyc6IHNlZW5fc3ViamVjdHN9fQogICAgICAgICAgICBzcChzY2FubmVkPWkrMSwgbWVzc2FnZT1mJ1NjYW5uaW5nIGhlYWRlcnPigKYge2krMX0gLyB7dG90YWxfcmF3fScpCiAgICAgICAgICAgIHN0YXR1cywgZGF0YSA9IGNvbm4udWlkKCdmZXRjaCcsIHVpZCwgJyhCT0RZLlBFRUtbSEVBREVSLkZJRUxEUyAoRlJPTSBTVUJKRUNUIERBVEUpXSknKQogICAgICAgICAgICBpZiBzdGF0dXMgIT0gJ09LJyBvciBub3QgZGF0YSBvciBkYXRhWzBdIGlzIE5vbmU6CiAgICAgICAgICAgICAgICBjb250aW51ZQogICAgICAgICAgICByYXdfaGRyICA9IGRhdGFbMF1bMV0gaWYgaXNpbnN0YW5jZShkYXRhWzBdLCB0dXBsZSkgZWxzZSBiJycKICAgICAgICAgICAgaGRyICAgICAgPSBlbWFpbC5tZXNzYWdlX2Zyb21fYnl0ZXMocmF3X2hkcikKICAgICAgICAgICAgc3ViamVjdCAgPSBkZWNvZGVfbWltZShoZHIuZ2V0KCdTdWJqZWN0JywgJycpKQogICAgICAgICAgICBzZW5kZXIgICA9IGRlY29kZV9taW1lKGhkci5nZXQoJ0Zyb20nLCAnJykpCiAgICAgICAgICAgIGRhdGVfc3RyID0gaGRyLmdldCgnRGF0ZScsICcnKQoKICAgICAgICAgICAgIyBQeXRob24tc2lkZSBkYXRlIGNoZWNrIOKAlCBZYWhvbyBJTUFQIFNJTkNFIGlzIHVucmVsaWFibGUKICAgICAgICAgICAgdHJ5OgogICAgICAgICAgICAgICAgZW1haWxfZHQgPSBfcGFyc2VfZHQoZGF0ZV9zdHIpCiAgICAgICAgICAgICAgICBpZiBlbWFpbF9kdC50emluZm8gaXMgbm90IE5vbmU6CiAgICAgICAgICAgICAgICAgICAgY3V0b2ZmX2F3YXJlID0gY3V0b2ZmX2R0LnJlcGxhY2UodHppbmZvPV9kdC50aW1lem9uZS51dGMpCiAgICAgICAgICAgICAgICAgICAgaWYgZW1haWxfZHQgPCBjdXRvZmZfYXdhcmU6CiAgICAgICAgICAgICAgICAgICAgICAgIGZpbHRlcmVkX291dCArPSAxCiAgICAgICAgICAgICAgICAgICAgICAgIGNvbnRpbnVlCiAgICAgICAgICAgICAgICBlbGlmIGVtYWlsX2R0LnJlcGxhY2UodHppbmZvPU5vbmUpIDwgY3V0b2ZmX2R0OgogICAgICAgICAgICAgICAgICAgIGZpbHRlcmVkX291dCArPSAxCiAgICAgICAgICAgICAgICAgICAgY29udGludWUKICAgICAgICAgICAgZXhjZXB0IEV4Y2VwdGlvbjoKICAgICAgICAgICAgICAgIHBhc3MgICMgdW5wYXJzZWFibGUgZGF0ZSDigJQgaW5jbHVkZSB0aGUgZW1haWwKCiAgICAgICAgICAgIGlmIGxlbihzZWVuX3N1YmplY3RzKSA8IDEwOgogICAgICAgICAgICAgICAgZW0gPSByZS5zZWFyY2gocic8KFtePl0rKT4nLCBzZW5kZXIpCiAgICAgICAgICAgICAgICBzZWVuX3N1YmplY3RzLmFwcGVuZCh7CiAgICAgICAgICAgICAgICAgICAgJ3N1YmplY3QnOiAgICAgIHN1YmplY3QsCiAgICAgICAgICAgICAgICAgICAgJ3NlbmRlcic6ICAgICAgIHNlbmRlciwKICAgICAgICAgICAgICAgICAgICAnc2VuZGVyX2VtYWlsJzogZW0uZ3JvdXAoMSkgaWYgZW0gZWxzZSBzZW5kZXIsCiAgICAgICAgICAgICAgICAgICAgJ2RhdGUnOiAgICAgICAgIGRhdGVfc3RyLAogICAgICAgICAgICAgICAgfSkKCiAgICAgICAgICAgIG1hdGNoZWQgPSBbXQogICAgICAgICAgICBmb3Igc3BlYyBpbiBzcGVjczoKICAgICAgICAgICAgICAgIHN1Ympfbm9ybSAgPSAnICcuam9pbihzdWJqZWN0LnNwbGl0KCkpLmxvd2VyKCkKICAgICAgICAgICAgICAgIHN1YmpfY2xlYW4gPSByZS5zdWIocideKHJlfGZ3ZHxmd3xhdyk6XHMqJywgJycsIHN1Ympfbm9ybSwgZmxhZ3M9cmUuSUdOT1JFQ0FTRSkKICAgICAgICAgICAgICAgIHNlbmRlcl9ub3JtID0gc2VuZGVyLmxvd2VyKCkuc3RyaXAoKQogICAgICAgICAgICAgICAgZW0yID0gcmUuc2VhcmNoKHInPChbXj5dKyk+Jywgc2VuZGVyKQogICAgICAgICAgICAgICAgc2VuZGVyX2VtYWlsID0gZW0yLmdyb3VwKDEpLmxvd2VyKCkgaWYgZW0yIGVsc2Ugc2VuZGVyX25vcm0KCiAgICAgICAgICAgICAgICBzdWJqX29rID0gVHJ1ZQogICAgICAgICAgICAgICAgaWYgc3BlYy5nZXQoJ3N1YmplY3RfZXhhY3QnKToKICAgICAgICAgICAgICAgICAgICBuID0gc3BlY1snc3ViamVjdF9leGFjdCddLmxvd2VyKCkuc3RyaXAoKQogICAgICAgICAgICAgICAgICAgIHN1Ympfb2sgPSBuID09IHN1Ympfbm9ybSBvciBuID09IHN1YmpfY2xlYW4KICAgICAgICAgICAgICAgIGVsaWYgc3BlYy5nZXQoJ3N1YmplY3RfY29udGFpbnMnKToKICAgICAgICAgICAgICAgICAgICBuID0gc3BlY1snc3ViamVjdF9jb250YWlucyddLmxvd2VyKCkuc3RyaXAoKQogICAgICAgICAgICAgICAgICAgIHN1Ympfb2sgPSBuIGluIHN1Ympfbm9ybSBvciBuIGluIHN1YmpfY2xlYW4KCiAgICAgICAgICAgICAgICBmcm9tX29rID0gVHJ1ZQogICAgICAgICAgICAgICAgaWYgc3BlYy5nZXQoJ2Zyb21fZXhhY3QnKToKICAgICAgICAgICAgICAgICAgICBuID0gc3BlY1snZnJvbV9leGFjdCddLmxvd2VyKCkuc3RyaXAoKQogICAgICAgICAgICAgICAgICAgIGZyb21fb2sgPSBuIGluIHNlbmRlcl9ub3JtIG9yIG4gaW4gc2VuZGVyX2VtYWlsCiAgICAgICAgICAgICAgICBlbGlmIHNwZWMuZ2V0KCdmcm9tX2RvbWFpbicpOgogICAgICAgICAgICAgICAgICAgIGQgPSBzcGVjWydmcm9tX2RvbWFpbiddLmxzdHJpcCgnQCcpLmxvd2VyKCkuc3RyaXAoKQogICAgICAgICAgICAgICAgICAgIGZyb21fb2sgPSBmJ0B7ZH0nIGluIHNlbmRlcl9ub3JtIG9yIGYnQHtkfScgaW4gc2VuZGVyX2VtYWlsCiAgICAgICAgICAgICAgICBlbGlmIHNwZWMuZ2V0KCdmcm9tX2NvbnRhaW5zJyk6CiAgICAgICAgICAgICAgICAgICAgbiA9IHNwZWNbJ2Zyb21fY29udGFpbnMnXS5sb3dlcigpLnN0cmlwKCkKICAgICAgICAgICAgICAgICAgICBmcm9tX29rID0gbiBpbiBzZW5kZXJfbm9ybSBvciBuIGluIHNlbmRlcl9lbWFpbAoKICAgICAgICAgICAgICAgIGlmIHN1Ympfb2sgYW5kIGZyb21fb2s6CiAgICAgICAgICAgICAgICAgICAgbWF0Y2hlZC5hcHBlbmQoc3BlYykKCiAgICAgICAgICAgIGlmIG1hdGNoZWQ6CiAgICAgICAgICAgICAgICBjYW5kaWRhdGVzLmFwcGVuZCgodWlkLCBzdWJqZWN0LCBzZW5kZXIsIGRhdGVfc3RyLCBtYXRjaGVkKSkKICAgICAgICAgICAgICAgIHNwKG1hdGNoZWQ9bGVuKGNhbmRpZGF0ZXMpKSAgIyB1cGRhdGUgY291bnRlciBpbW1lZGlhdGVseSBhcyBlYWNoIG1hdGNoIGlzIGZvdW5kCgogICAgICAgIHRvdGFsID0gdG90YWxfcmF3IC0gZmlsdGVyZWRfb3V0ICAjIGVtYWlscyBhY3R1YWxseSB3aXRoaW4gZGF0ZSB3aW5kb3cKICAgICAgICBuID0gbGVuKGNhbmRpZGF0ZXMpCiAgICAgICAgc3Aoc3RhZ2U9J2JvZGllcycsIG1hdGNoZWQ9biwKICAgICAgICAgICBtZXNzYWdlPWYne259IG1hdGNoeyJlcyIgaWYgbiE9MSBlbHNlICIifSDigJQgZmV0Y2hpbmcgYm9kaWVz4oCmJykKCiAgICAgICAgIyDilIDilIAgUGFzcyAyOiBmZXRjaCBib2R5LCByZXR1cm4gZm9yIGJyb3dzZXIgdG8gc2VuZCB0byBHcm9xIOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgAogICAgICAgIGZvciBpLCAodWlkLCBzdWJqZWN0LCBzZW5kZXIsIGRhdGVfc3RyLCBtYXRjaGVkX3NwZWNzKSBpbiBlbnVtZXJhdGUoY2FuZGlkYXRlcyk6CiAgICAgICAgICAgIHNwKG1lc3NhZ2U9ZidGZXRjaGluZyBib2R5IHtpKzF9IG9mIHtufeKApicpCiAgICAgICAgICAgIHN0YXR1cywgZGF0YSA9IGNvbm4udWlkKCdmZXRjaCcsIHVpZCwgJyhSRkM4MjIpJykKICAgICAgICAgICAgaWYgc3RhdHVzICE9ICdPSycgb3Igbm90IGRhdGEgb3IgZGF0YVswXSBpcyBOb25lOgogICAgICAgICAgICAgICAgY29udGludWUKICAgICAgICAgICAgbXNnICA9IGVtYWlsLm1lc3NhZ2VfZnJvbV9ieXRlcyhkYXRhWzBdWzFdKQogICAgICAgICAgICBib2R5ID0gZ2V0X3RleHRfYm9keShtc2cpCgogICAgICAgICAgICAjIE9uZSByZXN1bHQgcGVyIGVtYWlsIOKAlCB1c2UgZmlyc3Qgc3BlYyB0aGF0IHBhc3NlcyBib2R5X2NvbnRhaW5zIGZpbHRlcgogICAgICAgICAgICBzcGVjID0gbmV4dCgKICAgICAgICAgICAgICAgIChzIGZvciBzIGluIG1hdGNoZWRfc3BlY3MKICAgICAgICAgICAgICAgICBpZiBub3Qgcy5nZXQoJ2JvZHlfY29udGFpbnMnKSBvciBzWydib2R5X2NvbnRhaW5zJ10ubG93ZXIoKSBpbiBib2R5Lmxvd2VyKCkpLAogICAgICAgICAgICAgICAgbWF0Y2hlZF9zcGVjc1swXQogICAgICAgICAgICApCiAgICAgICAgICAgIHJlc3VsdHMuYXBwZW5kKHsKICAgICAgICAgICAgICAgICd1aWQnOiAgICAgICAgICB1aWQuZGVjb2RlKCksCiAgICAgICAgICAgICAgICAnc3BlY19pZCc6ICAgICAgc3BlYy5nZXQoJ2lkJywgJycpLAogICAgICAgICAgICAgICAgJ3NwZWNfbmFtZSc6ICAgIHNwZWMuZ2V0KCduYW1lJywgJycpLAogICAgICAgICAgICAgICAgJ3NwZWNfdGFnJzogICAgIHNwZWMuZ2V0KCd0YWcnLCAnJyksCiAgICAgICAgICAgICAgICAndXNlcl9pZCc6ICAgICAgc3BlYy5nZXQoJ3VzZXJfaWQnKSwKICAgICAgICAgICAgICAgICdhaV9oaW50JzogICAgICBzcGVjLmdldCgnYWlfaGludCcsICcnKSwKICAgICAgICAgICAgICAgICdzdWJqZWN0JzogICAgICBzdWJqZWN0LAogICAgICAgICAgICAgICAgJ3NlbmRlcic6ICAgICAgIHNlbmRlciwKICAgICAgICAgICAgICAgICdkYXRlJzogICAgICAgICBkYXRlX3N0ciwKICAgICAgICAgICAgICAgICdib2R5JzogICAgICAgICBib2R5Wzo2MDAwXSwKICAgICAgICAgICAgICAgICdib2R5X3NuaXBwZXQnOiBib2R5Wzo0MDBdLnN0cmlwKCksCiAgICAgICAgICAgICAgICAnZmllbGRzJzogICAgICAge30sCiAgICAgICAgICAgIH0pCiAgICAgICAgICAgICMgVXBkYXRlIG1hdGNoZWQgY291bnQgaW4gcmVhbCB0aW1lIHNvIHByb2dyZXNzIGJhciByZWZsZWN0cyBpdAogICAgICAgICAgICBzcChtYXRjaGVkPWxlbihyZXN1bHRzKSkKCiAgICAgICAgY29ubi5sb2dvdXQoKQogICAgICAgIHNwKHJ1bm5pbmc9RmFsc2UsIHN0YWdlPSdkb25lJywKICAgICAgICAgICBtZXNzYWdlPWYnRG9uZSDigJQge2xlbihyZXN1bHRzKX0gbWF0Y2h7ImVzIiBpZiBsZW4ocmVzdWx0cykhPTEgZWxzZSAiIn0gZmV0Y2hlZC4gUnVubmluZyBBSSBleHRyYWN0aW9u4oCmJykKCiAgICBleGNlcHQgRXhjZXB0aW9uIGFzIGU6CiAgICAgICAgc3AocnVubmluZz1GYWxzZSwgc3RhZ2U9J2Vycm9yJywgbWVzc2FnZT1zdHIoZSkpCiAgICAgICAgcmV0dXJuIHsnbGVhZHMnOiBbeydlcnJvcic6IHN0cihlKX1dLCAnZGVidWcnOiB7fX0KCiAgICByZXR1cm4gewogICAgICAgICdsZWFkcyc6IHJlc3VsdHMsCiAgICAgICAgJ2RlYnVnJzogeyd0b3RhbCc6IHRvdGFsLCAnY2FuZGlkYXRlcyc6IGxlbihjYW5kaWRhdGVzKSwgJ3NlZW5fc3ViamVjdHMnOiBzZWVuX3N1YmplY3RzfSwKICAgIH0KCiMg4pSA4pSA4pSAIEhUVFAgaGFuZGxlciDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIAKCmNsYXNzIElNQVBIYW5kbGVyKEJhc2VIVFRQUmVxdWVzdEhhbmRsZXIpOgoKICAgIGRlZiBfY29ycyhzZWxmKToKICAgICAgICBzZWxmLnNlbmRfaGVhZGVyKCdBY2Nlc3MtQ29udHJvbC1BbGxvdy1PcmlnaW4nLCAgJyonKQogICAgICAgIHNlbGYuc2VuZF9oZWFkZXIoJ0FjY2Vzcy1Db250cm9sLUFsbG93LU1ldGhvZHMnLCAnR0VULCBQT1NULCBPUFRJT05TJykKICAgICAgICBzZWxmLnNlbmRfaGVhZGVyKCdBY2Nlc3MtQ29udHJvbC1BbGxvdy1IZWFkZXJzJywgJ0NvbnRlbnQtVHlwZScpCgogICAgZGVmIF9qc29uKHNlbGYsIGRhdGEsIHN0YXR1cz0yMDApOgogICAgICAgIGJvZHkgPSBqc29uLmR1bXBzKGRhdGEpLmVuY29kZSgpCiAgICAgICAgc2VsZi5zZW5kX3Jlc3BvbnNlKHN0YXR1cykKICAgICAgICBzZWxmLl9jb3JzKCkKICAgICAgICBzZWxmLnNlbmRfaGVhZGVyKCdDb250ZW50LVR5cGUnLCAgJ2FwcGxpY2F0aW9uL2pzb24nKQogICAgICAgIHNlbGYuc2VuZF9oZWFkZXIoJ0NvbnRlbnQtTGVuZ3RoJywgbGVuKGJvZHkpKQogICAgICAgIHNlbGYuZW5kX2hlYWRlcnMoKQogICAgICAgIHNlbGYud2ZpbGUud3JpdGUoYm9keSkKCiAgICBkZWYgX3JlYWRfYm9keShzZWxmKToKICAgICAgICBsZW5ndGggPSBpbnQoc2VsZi5oZWFkZXJzLmdldCgnQ29udGVudC1MZW5ndGgnLCAwKSkKICAgICAgICB0cnk6CiAgICAgICAgICAgIHJldHVybiBqc29uLmxvYWRzKHNlbGYucmZpbGUucmVhZChsZW5ndGgpKQogICAgICAgIGV4Y2VwdCBFeGNlcHRpb246CiAgICAgICAgICAgIHJldHVybiB7fQoKICAgIGRlZiBkb19PUFRJT05TKHNlbGYpOgogICAgICAgIHNlbGYuc2VuZF9yZXNwb25zZSgyMDApCiAgICAgICAgc2VsZi5fY29ycygpCiAgICAgICAgc2VsZi5lbmRfaGVhZGVycygpCgogICAgZGVmIGRvX0dFVChzZWxmKToKICAgICAgICBwYXRoID0gdXJscGFyc2Uoc2VsZi5wYXRoKS5wYXRoCiAgICAgICAgaWYgcGF0aCA9PSAnL3BpbmcnOgogICAgICAgICAgICBzZWxmLl9qc29uKHsnb2snOiBUcnVlLCAnc2VydmljZSc6ICdpbWFwX3NlcnZlcicsICdwb3J0JzogUE9SVH0pCiAgICAgICAgZWxpZiBwYXRoID09ICcvc3RhdHVzJzoKICAgICAgICAgICAgc2VsZi5fanNvbihncCgpKQogICAgICAgIGVsc2U6CiAgICAgICAgICAgIHNlbGYuX2pzb24oeydlcnJvcic6ICdOb3QgZm91bmQnfSwgNDA0KQoKICAgIGRlZiBkb19QT1NUKHNlbGYpOgogICAgICAgIHBhdGggPSB1cmxwYXJzZShzZWxmLnBhdGgpLnBhdGgKICAgICAgICBkYXRhID0gc2VsZi5fcmVhZF9ib2R5KCkKCiAgICAgICAgaWYgcGF0aCA9PSAnL3Rlc3QnOgogICAgICAgICAgICBzZWxmLl9qc29uKGltYXBfdGVzdChkYXRhLmdldCgnY29uZmlnJywgZGF0YSkpKQoKICAgICAgICBlbGlmIHBhdGggPT0gJy9jYW5jZWwnOgogICAgICAgICAgICBnbG9iYWwgX2NhbmNlbF9yZXF1ZXN0ZWQKICAgICAgICAgICAgX2NhbmNlbF9yZXF1ZXN0ZWQgPSBUcnVlCiAgICAgICAgICAgIHNwKG1lc3NhZ2U9J0NhbmNlbGxpbmfigKYnKQogICAgICAgICAgICBzZWxmLl9qc29uKHsnb2snOiBUcnVlfSkKCiAgICAgICAgZWxpZiBwYXRoID09ICcvdGVzdC1ncm9xJzoKICAgICAgICAgICAga2V5ICAgID0gZGF0YS5nZXQoJ2dyb3Ffa2V5JywgJycpCiAgICAgICAgICAgIHJlc3VsdCA9IGdyb3FfZXh0cmFjdCgnVGVzdCBlbWFpbCBib2R5OiBOYW1lIGlzIEpvaG4gU21pdGgsIHBob25lICgzMDUpIDU1NS0xMjM0LicsIGdyb3Ffa2V5PWtleSkKICAgICAgICAgICAgc2VsZi5fanNvbihyZXN1bHQpCgogICAgICAgIGVsaWYgcGF0aCA9PSAnL2Jyb3dzZSc6CiAgICAgICAgICAgICMgUmV0dXJuIGxhc3QgTiBlbWFpbCBoZWFkZXJzIChubyBzcGVjIGZpbHRlcmluZykKICAgICAgICAgICAgY29uZmlnICAgICAgID0gZGF0YS5nZXQoJ2NvbmZpZycsIHt9KQogICAgICAgICAgICBsaW1pdCAgICAgICAgPSBpbnQoZGF0YS5nZXQoJ2xpbWl0JywgMzApKQogICAgICAgICAgICBmbGFnZ2VkX29ubHkgPSBib29sKGRhdGEuZ2V0KCdmbGFnZ2VkX29ubHknLCBGYWxzZSkpCiAgICAgICAgICAgIGlmIG5vdCBjb25maWcuZ2V0KCdlbWFpbCcpIG9yIG5vdCBjb25maWcuZ2V0KCdwYXNzd29yZCcpOgogICAgICAgICAgICAgICAgc2VsZi5fanNvbih7J2Vycm9yJzogJ01pc3NpbmcgSU1BUCBjcmVkZW50aWFscyd9LCA0MDApCiAgICAgICAgICAgICAgICByZXR1cm4KICAgICAgICAgICAgdHJ5OgogICAgICAgICAgICAgICAgY29ubiA9IGNvbm5lY3RfaW1hcChjb25maWcpCgogICAgICAgICAgICAgICAgIyBVc2UgZXhwbGljaXQgZm9sZGVyIGlmIHByb3ZpZGVkLCBvdGhlcndpc2UgYXV0by1kZXRlY3QKICAgICAgICAgICAgICAgIGV4cGxpY2l0X2ZvbGRlciA9IGRhdGEuZ2V0KCdmb2xkZXInLCAnJykuc3RyaXAoKQogICAgICAgICAgICAgICAgaWYgZXhwbGljaXRfZm9sZGVyOgogICAgICAgICAgICAgICAgICAgIGZvbGRlcnNfdG9fdHJ5ID0gW2V4cGxpY2l0X2ZvbGRlcl0KICAgICAgICAgICAgICAgIGVsc2U6CiAgICAgICAgICAgICAgICAgICAgIyBUcnkgSU5CT1ggZmlyc3Q7IGlmIGVtcHR5LCB0cnkgR21haWwncyBBbGwgTWFpbCBmb2xkZXIKICAgICAgICAgICAgICAgICAgICBmb2xkZXJzX3RvX3RyeSA9IFsnSU5CT1gnLCAnIltHbWFpbF0vQWxsIE1haWwiJywgJ1tHbWFpbF0vQWxsIE1haWwnLCAnSU5CT1guSW5ib3gnLCAnSW5ib3gnXQogICAgICAgICAgICAgICAgc2VsZWN0ZWRfZm9sZGVyID0gTm9uZQogICAgICAgICAgICAgICAgdWlkX2xpc3QgPSBbXQogICAgICAgICAgICAgICAgc2VhcmNoX2NyaXRlcmlhID0gJ0ZMQUdHRUQnIGlmIGZsYWdnZWRfb25seSBlbHNlICdBTEwnCgogICAgICAgICAgICAgICAgZm9yIGZvbGRlciBpbiBmb2xkZXJzX3RvX3RyeToKICAgICAgICAgICAgICAgICAgICB0cnk6CiAgICAgICAgICAgICAgICAgICAgICAgIHN0YXR1cywgY291bnRfZGF0YSA9IGNvbm4uc2VsZWN0KGZvbGRlciwgcmVhZG9ubHk9VHJ1ZSkKICAgICAgICAgICAgICAgICAgICAgICAgaWYgc3RhdHVzICE9ICdPSyc6CiAgICAgICAgICAgICAgICAgICAgICAgICAgICBjb250aW51ZQogICAgICAgICAgICAgICAgICAgICAgICBtc2dfY291bnQgPSBpbnQoY291bnRfZGF0YVswXSkgaWYgY291bnRfZGF0YSBhbmQgY291bnRfZGF0YVswXSBlbHNlIDAKICAgICAgICAgICAgICAgICAgICAgICAgaWYgbXNnX2NvdW50ID09IDA6CiAgICAgICAgICAgICAgICAgICAgICAgICAgICBjb250aW51ZQogICAgICAgICAgICAgICAgICAgICAgICBzdGF0dXMsIHVpZHMgPSBjb25uLnVpZCgnc2VhcmNoJywgTm9uZSwgc2VhcmNoX2NyaXRlcmlhKQogICAgICAgICAgICAgICAgICAgICAgICBpZiBzdGF0dXMgPT0gJ09LJyBhbmQgdWlkc1swXToKICAgICAgICAgICAgICAgICAgICAgICAgICAgIHVpZF9saXN0ID0gdWlkc1swXS5zcGxpdCgpCiAgICAgICAgICAgICAgICAgICAgICAgICAgICBpZiB1aWRfbGlzdDoKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBzZWxlY3RlZF9mb2xkZXIgPSBmb2xkZXIKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBicmVhawogICAgICAgICAgICAgICAgICAgIGV4Y2VwdCBFeGNlcHRpb246CiAgICAgICAgICAgICAgICAgICAgICAgIGNvbnRpbnVlCgogICAgICAgICAgICAgICAgaWYgbm90IHVpZF9saXN0OgogICAgICAgICAgICAgICAgICAgIGNvbm4ubG9nb3V0KCkKICAgICAgICAgICAgICAgICAgICBzZWxmLl9qc29uKHsnZW1haWxzJzogW10sICdmbGFnZ2VkX29ubHknOiBmbGFnZ2VkX29ubHksCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgJ2RlYnVnJzogJ05vIGVtYWlscyBmb3VuZCBpbiBhbnkgZm9sZGVyJ30pCiAgICAgICAgICAgICAgICAgICAgcmV0dXJuCgogICAgICAgICAgICAgICAgdWlkX2xpc3QgPSB1aWRfbGlzdFstbGltaXQ6XQogICAgICAgICAgICAgICAgZW1haWxzID0gW10KICAgICAgICAgICAgICAgIGZvciB1aWQgaW4gcmV2ZXJzZWQodWlkX2xpc3QpOgogICAgICAgICAgICAgICAgICAgIHN0YXR1cywgZGF0YTIgPSBjb25uLnVpZCgnZmV0Y2gnLCB1aWQsICcoQk9EWS5QRUVLW0hFQURFUi5GSUVMRFMgKEZST00gU1VCSkVDVCBEQVRFIEZMQUdTIExJU1QtVU5TVUJTQ1JJQkUpXSknKQogICAgICAgICAgICAgICAgICAgIGlmIHN0YXR1cyAhPSAnT0snIG9yIG5vdCBkYXRhMiBvciBkYXRhMlswXSBpcyBOb25lOgogICAgICAgICAgICAgICAgICAgICAgICBjb250aW51ZQogICAgICAgICAgICAgICAgICAgIHJhd19oZHIgID0gZGF0YTJbMF1bMV0gaWYgaXNpbnN0YW5jZShkYXRhMlswXSwgdHVwbGUpIGVsc2UgYicnCiAgICAgICAgICAgICAgICAgICAgaGRyICAgICAgPSBlbWFpbC5tZXNzYWdlX2Zyb21fYnl0ZXMocmF3X2hkcikKICAgICAgICAgICAgICAgICAgICBzdWJqZWN0ICA9IGRlY29kZV9taW1lKGhkci5nZXQoJ1N1YmplY3QnLCAnJykpCiAgICAgICAgICAgICAgICAgICAgc2VuZGVyICAgPSBkZWNvZGVfbWltZShoZHIuZ2V0KCdGcm9tJywgJycpKQogICAgICAgICAgICAgICAgICAgIGRhdGVfc3RyID0gaGRyLmdldCgnRGF0ZScsICcnKQogICAgICAgICAgICAgICAgICAgIHVuc3ViICAgID0gaGRyLmdldCgnTGlzdC1VbnN1YnNjcmliZScsICcnKQogICAgICAgICAgICAgICAgICAgIGVtICAgICAgID0gcmUuc2VhcmNoKHInPChbXj5dKyk+Jywgc2VuZGVyKQogICAgICAgICAgICAgICAgICAgIGVtYWlscy5hcHBlbmQoewogICAgICAgICAgICAgICAgICAgICAgICAndWlkJzogICAgICAgICAgICAgIHVpZC5kZWNvZGUoKSwKICAgICAgICAgICAgICAgICAgICAgICAgJ3N1YmplY3QnOiAgICAgICAgICBzdWJqZWN0LAogICAgICAgICAgICAgICAgICAgICAgICAnc2VuZGVyJzogICAgICAgICAgIHNlbmRlciwKICAgICAgICAgICAgICAgICAgICAgICAgJ3NlbmRlcl9lbWFpbCc6ICAgICBlbS5ncm91cCgxKSBpZiBlbSBlbHNlIHNlbmRlciwKICAgICAgICAgICAgICAgICAgICAgICAgJ2RhdGUnOiAgICAgICAgICAgICBkYXRlX3N0ciwKICAgICAgICAgICAgICAgICAgICAgICAgJ2ZsYWdnZWQnOiAgICAgICAgICBUcnVlIGlmIGZsYWdnZWRfb25seSBlbHNlIEZhbHNlLAogICAgICAgICAgICAgICAgICAgICAgICAnbGlzdF91bnN1YnNjcmliZSc6IHVuc3ViLAogICAgICAgICAgICAgICAgICAgIH0pCiAgICAgICAgICAgICAgICBjb25uLmxvZ291dCgpCiAgICAgICAgICAgICAgICBzZWxmLl9qc29uKHsnZW1haWxzJzogZW1haWxzLCAnZmxhZ2dlZF9vbmx5JzogZmxhZ2dlZF9vbmx5LAogICAgICAgICAgICAgICAgICAgICAgICAgICAgJ3RvdGFsX2ZvdW5kJzogbGVuKGVtYWlscyksICdmb2xkZXInOiBzZWxlY3RlZF9mb2xkZXJ9KQogICAgICAgICAgICBleGNlcHQgRXhjZXB0aW9uIGFzIGU6CiAgICAgICAgICAgICAgICBzZWxmLl9qc29uKHsnZXJyb3InOiBzdHIoZSl9KQoKICAgICAgICBlbGlmIHBhdGggPT0gJy9oZWFkZXJzJzoKICAgICAgICAgICAgIyBGZXRjaCBmdWxsIGhlYWRlcnMgZm9yIGEgc2luZ2xlIGVtYWlsIChmb3IgdW5zdWJzY3JpYmUgZGV0ZWN0aW9uKQogICAgICAgICAgICBjb25maWcgPSBkYXRhLmdldCgnY29uZmlnJywge30pCiAgICAgICAgICAgIHVpZCAgICA9IGRhdGEuZ2V0KCd1aWQnLCAnJykKICAgICAgICAgICAgaWYgbm90IGNvbmZpZy5nZXQoJ2VtYWlsJykgb3Igbm90IGNvbmZpZy5nZXQoJ3Bhc3N3b3JkJykgb3Igbm90IHVpZDoKICAgICAgICAgICAgICAgIHNlbGYuX2pzb24oeydlcnJvcic6ICdNaXNzaW5nIHBhcmFtcyd9LCA0MDApCiAgICAgICAgICAgICAgICByZXR1cm4KICAgICAgICAgICAgdHJ5OgogICAgICAgICAgICAgICAgY29ubiA9IGNvbm5lY3RfaW1hcChjb25maWcpCiAgICAgICAgICAgICAgICBjb25uLnNlbGVjdCgnSU5CT1gnLCByZWFkb25seT1UcnVlKQogICAgICAgICAgICAgICAgc3RhdHVzLCBkYXRhMiA9IGNvbm4udWlkKCdmZXRjaCcsIHVpZC5lbmNvZGUoKSwgJyhCT0RZLlBFRUtbSEVBREVSXSknKQogICAgICAgICAgICAgICAgaWYgc3RhdHVzICE9ICdPSycgb3Igbm90IGRhdGEyIG9yIGRhdGEyWzBdIGlzIE5vbmU6CiAgICAgICAgICAgICAgICAgICAgY29ubi5sb2dvdXQoKQogICAgICAgICAgICAgICAgICAgIHNlbGYuX2pzb24oeydlcnJvcic6ICdFbWFpbCBub3QgZm91bmQnfSkKICAgICAgICAgICAgICAgICAgICByZXR1cm4KICAgICAgICAgICAgICAgIHJhd19oZHIgPSBkYXRhMlswXVsxXSBpZiBpc2luc3RhbmNlKGRhdGEyWzBdLCB0dXBsZSkgZWxzZSBiJycKICAgICAgICAgICAgICAgIGhkciA9IGVtYWlsLm1lc3NhZ2VfZnJvbV9ieXRlcyhyYXdfaGRyKQogICAgICAgICAgICAgICAgdW5zdWIgID0gaGRyLmdldCgnTGlzdC1VbnN1YnNjcmliZScsICcnKQogICAgICAgICAgICAgICAgc2VuZGVyID0gZGVjb2RlX21pbWUoaGRyLmdldCgnRnJvbScsICcnKSkKICAgICAgICAgICAgICAgIGVtICAgICA9IHJlLnNlYXJjaChyJzwoW14+XSspPicsIHNlbmRlcikKICAgICAgICAgICAgICAgIGNvbm4ubG9nb3V0KCkKICAgICAgICAgICAgICAgIHNlbGYuX2pzb24oewogICAgICAgICAgICAgICAgICAgICdsaXN0X3Vuc3Vic2NyaWJlJzogdW5zdWIsCiAgICAgICAgICAgICAgICAgICAgJ3NlbmRlcic6ICAgICAgICAgICBzZW5kZXIsCiAgICAgICAgICAgICAgICAgICAgJ3NlbmRlcl9lbWFpbCc6ICAgICBlbS5ncm91cCgxKSBpZiBlbSBlbHNlIHNlbmRlciwKICAgICAgICAgICAgICAgICAgICAnc3ViamVjdCc6ICAgICAgICAgIGRlY29kZV9taW1lKGhkci5nZXQoJ1N1YmplY3QnLCAnJykpLAogICAgICAgICAgICAgICAgfSkKICAgICAgICAgICAgZXhjZXB0IEV4Y2VwdGlvbiBhcyBlOgogICAgICAgICAgICAgICAgc2VsZi5fanNvbih7J2Vycm9yJzogc3RyKGUpfSkKCiAgICAgICAgZWxpZiBwYXRoID09ICcvYm9keSc6CiAgICAgICAgICAgICMgRmV0Y2ggZnVsbCBib2R5IGZvciBhIHNpbmdsZSBlbWFpbCBieSBVSUQKICAgICAgICAgICAgY29uZmlnID0gZGF0YS5nZXQoJ2NvbmZpZycsIHt9KQogICAgICAgICAgICB1aWQgICAgPSBkYXRhLmdldCgndWlkJywgJycpCiAgICAgICAgICAgIGlmIG5vdCBjb25maWcuZ2V0KCdlbWFpbCcpIG9yIG5vdCBjb25maWcuZ2V0KCdwYXNzd29yZCcpIG9yIG5vdCB1aWQ6CiAgICAgICAgICAgICAgICBzZWxmLl9qc29uKHsnZXJyb3InOiAnTWlzc2luZyBwYXJhbXMnfSwgNDAwKQogICAgICAgICAgICAgICAgcmV0dXJuCiAgICAgICAgICAgIHRyeToKICAgICAgICAgICAgICAgIGNvbm4gPSBjb25uZWN0X2ltYXAoY29uZmlnKQogICAgICAgICAgICAgICAgY29ubi5zZWxlY3QoJ0lOQk9YJywgcmVhZG9ubHk9VHJ1ZSkKICAgICAgICAgICAgICAgIHN0YXR1cywgZGF0YTIgPSBjb25uLnVpZCgnZmV0Y2gnLCB1aWQuZW5jb2RlKCksICcoUkZDODIyKScpCiAgICAgICAgICAgICAgICBpZiBzdGF0dXMgIT0gJ09LJyBvciBub3QgZGF0YTIgb3IgZGF0YTJbMF0gaXMgTm9uZToKICAgICAgICAgICAgICAgICAgICBjb25uLmxvZ291dCgpCiAgICAgICAgICAgICAgICAgICAgc2VsZi5fanNvbih7J2Vycm9yJzogJ0VtYWlsIG5vdCBmb3VuZCd9KQogICAgICAgICAgICAgICAgICAgIHJldHVybgogICAgICAgICAgICAgICAgbXNnICA9IGVtYWlsLm1lc3NhZ2VfZnJvbV9ieXRlcyhkYXRhMlswXVsxXSkKICAgICAgICAgICAgICAgIGJvZHkgPSBnZXRfdGV4dF9ib2R5KG1zZykKICAgICAgICAgICAgICAgIGNvbm4ubG9nb3V0KCkKICAgICAgICAgICAgICAgIHNlbGYuX2pzb24oeydib2R5JzogYm9keX0pCiAgICAgICAgICAgIGV4Y2VwdCBFeGNlcHRpb24gYXMgZToKICAgICAgICAgICAgICAgIHNlbGYuX2pzb24oeydlcnJvcic6IHN0cihlKX0pCgogICAgICAgIGVsaWYgcGF0aCA9PSAnL2ZvbGRlcnMnOgogICAgICAgICAgICAjIExpc3QgYXZhaWxhYmxlIElNQVAgZm9sZGVycyBmb3IgYSBnaXZlbiBhY2NvdW50CiAgICAgICAgICAgIGNvbmZpZyA9IGRhdGEuZ2V0KCdjb25maWcnLCB7fSkKICAgICAgICAgICAgaWYgbm90IGNvbmZpZy5nZXQoJ2VtYWlsJykgb3Igbm90IGNvbmZpZy5nZXQoJ3Bhc3N3b3JkJyk6CiAgICAgICAgICAgICAgICBzZWxmLl9qc29uKHsnZXJyb3InOiAnTWlzc2luZyBjcmVkZW50aWFscyd9LCA0MDApCiAgICAgICAgICAgICAgICByZXR1cm4KICAgICAgICAgICAgdHJ5OgogICAgICAgICAgICAgICAgY29ubiA9IGNvbm5lY3RfaW1hcChjb25maWcpCiAgICAgICAgICAgICAgICBzdGF0dXMsIGZvbGRlcl9saXN0ID0gY29ubi5saXN0KCkKICAgICAgICAgICAgICAgIGNvbm4ubG9nb3V0KCkKICAgICAgICAgICAgICAgIGZvbGRlcnMgPSBbXQogICAgICAgICAgICAgICAgaWYgc3RhdHVzID09ICdPSyc6CiAgICAgICAgICAgICAgICAgICAgZm9yIGYgaW4gZm9sZGVyX2xpc3Q6CiAgICAgICAgICAgICAgICAgICAgICAgIGlmIGY6CiAgICAgICAgICAgICAgICAgICAgICAgICAgICAjIFBhcnNlIGZvbGRlciBuYW1lIGZyb20gcmVzcG9uc2UgbGlrZTogKFxIYXNOb0NoaWxkcmVuKSAiLyIgIklOQk9YIgogICAgICAgICAgICAgICAgICAgICAgICAgICAgZGVjb2RlZCA9IGYuZGVjb2RlKCd1dGYtOCcsIGVycm9ycz0naWdub3JlJykgaWYgaXNpbnN0YW5jZShmLCBieXRlcykgZWxzZSBzdHIoZikKICAgICAgICAgICAgICAgICAgICAgICAgICAgICMgRXh0cmFjdCBmb2xkZXIgbmFtZSDigJQgbGFzdCBxdW90ZWQgb3IgdW5xdW90ZWQgdG9rZW4KICAgICAgICAgICAgICAgICAgICAgICAgICAgIG0gPSByZS5zZWFyY2gociciKFteIl0rKSJccyokJywgZGVjb2RlZCkgb3IgcmUuc2VhcmNoKHInKFxTKylccyokJywgZGVjb2RlZCkKICAgICAgICAgICAgICAgICAgICAgICAgICAgIGlmIG06CiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgZm9sZGVycy5hcHBlbmQobS5ncm91cCgxKSkKICAgICAgICAgICAgICAgIHNlbGYuX2pzb24oeydmb2xkZXJzJzogZm9sZGVyc30pCiAgICAgICAgICAgIGV4Y2VwdCBFeGNlcHRpb24gYXMgZToKICAgICAgICAgICAgICAgIHNlbGYuX2pzb24oeydlcnJvcic6IHN0cihlKX0pCgogICAgICAgIGVsaWYgcGF0aCA9PSAnL3NjcmFwZSc6CiAgICAgICAgICAgIHVybCAgICAgPSBkYXRhLmdldCgndXJsJywgJycpLnN0cmlwKCkKICAgICAgICAgICAgdGltZW91dCA9IGludChkYXRhLmdldCgndGltZW91dCcsIDE1KSkKICAgICAgICAgICAgaWYgbm90IHVybDoKICAgICAgICAgICAgICAgIHNlbGYuX2pzb24oeydlcnJvcic6ICdObyBVUkwgcHJvdmlkZWQnfSwgNDAwKQogICAgICAgICAgICAgICAgcmV0dXJuCiAgICAgICAgICAgIHRyeToKICAgICAgICAgICAgICAgIGltcG9ydCB1cmxsaWIucmVxdWVzdCBhcyBfdXJlcQogICAgICAgICAgICAgICAgcmVxID0gX3VyZXEuUmVxdWVzdCh1cmwsIGhlYWRlcnM9ewogICAgICAgICAgICAgICAgICAgICdVc2VyLUFnZW50JzogJ01vemlsbGEvNS4wIChXaW5kb3dzIE5UIDEwLjA7IFdpbjY0OyB4NjQpIEFwcGxlV2ViS2l0LzUzNy4zNiAoS0hUTUwsIGxpa2UgR2Vja28pIENocm9tZS8xMjAuMC4wLjAgU2FmYXJpLzUzNy4zNicsCiAgICAgICAgICAgICAgICAgICAgJ0FjY2VwdCc6ICd0ZXh0L2h0bWwsYXBwbGljYXRpb24veGh0bWwreG1sLGFwcGxpY2F0aW9uL3htbDtxPTAuOSwqLyo7cT0wLjgnLAogICAgICAgICAgICAgICAgICAgICdBY2NlcHQtTGFuZ3VhZ2UnOiAnZW4tVVMsZW47cT0wLjknLAogICAgICAgICAgICAgICAgfSkKICAgICAgICAgICAgICAgIHdpdGggX3VyZXEudXJsb3BlbihyZXEsIHRpbWVvdXQ9dGltZW91dCkgYXMgcmVzcDoKICAgICAgICAgICAgICAgICAgICByYXdfYnl0ZXMgPSByZXNwLnJlYWQoMTAyNCAqIDUxMikgICMgY2FwIGF0IDUxMktCCiAgICAgICAgICAgICAgICAgICAgY2hhcnNldCA9ICd1dGYtOCcKICAgICAgICAgICAgICAgICAgICBjdCA9IHJlc3AuaGVhZGVycy5nZXQoJ0NvbnRlbnQtVHlwZScsICcnKQogICAgICAgICAgICAgICAgICAgIGlmICdjaGFyc2V0PScgaW4gY3Q6CiAgICAgICAgICAgICAgICAgICAgICAgIGNoYXJzZXQgPSBjdC5zcGxpdCgnY2hhcnNldD0nKVstMV0uc3BsaXQoJzsnKVswXS5zdHJpcCgpCiAgICAgICAgICAgICAgICAgICAgcmF3X2h0bWwgPSByYXdfYnl0ZXMuZGVjb2RlKGNoYXJzZXQsIGVycm9ycz0ncmVwbGFjZScpCgogICAgICAgICAgICAgICAgIyBTdHJpcCB0byBwbGFpbiB0ZXh0CiAgICAgICAgICAgICAgICBjbGVhbiA9IHN0cmlwX2h0bWwocmF3X2h0bWwpCiAgICAgICAgICAgICAgICAjIFJlbW92ZSBleGNlc3NpdmUgYmxhbmsgbGluZXMKICAgICAgICAgICAgICAgIGxpbmVzID0gW2wuc3RyaXAoKSBmb3IgbCBpbiBjbGVhbi5zcGxpdCgnXG4nKSBpZiBsLnN0cmlwKCldCiAgICAgICAgICAgICAgICBjbGVhbl90ZXh0ID0gJ1xuJy5qb2luKGxpbmVzKQoKICAgICAgICAgICAgICAgIHNlbGYuX2pzb24oewogICAgICAgICAgICAgICAgICAgICdvayc6ICAgVHJ1ZSwKICAgICAgICAgICAgICAgICAgICAndGV4dCc6IGNsZWFuX3RleHRbOjQwMDAwXSwgICMgY2FwIGZvciBHcm9xCiAgICAgICAgICAgICAgICAgICAgJ2xlbic6ICBsZW4oY2xlYW5fdGV4dCksCiAgICAgICAgICAgICAgICAgICAgJ3VybCc6ICB1cmwsCiAgICAgICAgICAgICAgICB9KQogICAgICAgICAgICBleGNlcHQgRXhjZXB0aW9uIGFzIGU6CiAgICAgICAgICAgICAgICBzZWxmLl9qc29uKHsnb2snOiBGYWxzZSwgJ2Vycm9yJzogc3RyKGUpLCAndGV4dCc6ICcnLCAnbGVuJzogMCwgJ3VybCc6IHVybH0pCgogICAgICAgIGVsaWYgcGF0aCA9PSAnL2ZldGNoJzoKICAgICAgICAgICAgY29uZmlnICAgPSBkYXRhLmdldCgnY29uZmlnJywge30pCiAgICAgICAgICAgIHNwZWNzICAgID0gZGF0YS5nZXQoJ3NwZWNzJywgW10pCiAgICAgICAgICAgIGRheXMgICAgID0gZGF0YS5nZXQoJ2RheXMnLCAxNCkKICAgICAgICAgICAgaWYgbm90IGNvbmZpZy5nZXQoJ2VtYWlsJykgb3Igbm90IGNvbmZpZy5nZXQoJ3Bhc3N3b3JkJyk6CiAgICAgICAgICAgICAgICBzZWxmLl9qc29uKHsnZXJyb3InOiAnTWlzc2luZyBJTUFQIGNyZWRlbnRpYWxzJ30sIDQwMCkKICAgICAgICAgICAgICAgIHJldHVybgogICAgICAgICAgICAjIGdyb3Ffa2V5IG5vIGxvbmdlciB1c2VkIHNlcnZlci1zaWRlIOKAlCBicm93c2VyIGNhbGxzIEdyb3EgZGlyZWN0bHkKICAgICAgICAgICAgcmVzdWx0X2JveCA9IFtOb25lXQogICAgICAgICAgICBkZWYgcnVuKCk6IHJlc3VsdF9ib3hbMF0gPSBpbWFwX2ZldGNoKGNvbmZpZywgc3BlY3MsIGRheXMpCiAgICAgICAgICAgIHQgPSB0aHJlYWRpbmcuVGhyZWFkKHRhcmdldD1ydW4sIGRhZW1vbj1UcnVlKQogICAgICAgICAgICB0LnN0YXJ0KCkKICAgICAgICAgICAgdC5qb2luKHRpbWVvdXQ9NDgwKQogICAgICAgICAgICBpZiB0LmlzX2FsaXZlKCk6CiAgICAgICAgICAgICAgICBzcChydW5uaW5nPUZhbHNlLCBzdGFnZT0nZXJyb3InLCBtZXNzYWdlPSdTY2FuIHRpbWVkIG91dCAoOCBtaW4gbGltaXQpLicpCiAgICAgICAgICAgICAgICBzZWxmLl9qc29uKHsnbGVhZHMnOiBbeydlcnJvcic6ICdUaW1lZCBvdXQuIFRyeSBhIHNob3J0ZXIgZGF0ZSByYW5nZS4nfV0sICdkZWJ1Zyc6IHt9fSkKICAgICAgICAgICAgZWxzZToKICAgICAgICAgICAgICAgIHNlbGYuX2pzb24ocmVzdWx0X2JveFswXSBvciB7J2xlYWRzJzogW10sICdkZWJ1Zyc6IHt9fSkKCiAgICAgICAgZWxzZToKICAgICAgICAgICAgc2VsZi5fanNvbih7J2Vycm9yJzogJ05vdCBmb3VuZCd9LCA0MDQpCgogICAgZGVmIGxvZ19tZXNzYWdlKHNlbGYsIGZtdCwgKmFyZ3MpOgogICAgICAgIHByaW50KGYnICBbe2FyZ3NbMV19XSB7YXJnc1swXX0nKQoKIyDilIDilIDilIAgQXV0by1sYXVuY2ggc2VydmVyLnB5IOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgAoKZGVmIGlzX3BvcnRfb3Blbihwb3J0KToKICAgIGltcG9ydCBzb2NrZXQKICAgIHdpdGggc29ja2V0LnNvY2tldChzb2NrZXQuQUZfSU5FVCwgc29ja2V0LlNPQ0tfU1RSRUFNKSBhcyBzOgogICAgICAgIHMuc2V0dGltZW91dCgxKQogICAgICAgIHJldHVybiBzLmNvbm5lY3RfZXgoKCdsb2NhbGhvc3QnLCBwb3J0KSkgPT0gMAoKZGVmIHN0YXJ0X3Byb3h5X3NlcnZlcigpOgogICAgaWYgaXNfcG9ydF9vcGVuKFBST1hZX1BPUlQpOgogICAgICAgIHByaW50KGYnICBDT1JTIHByb3h5IGFscmVhZHkgcnVubmluZyBvbiBwb3J0IHtQUk9YWV9QT1JUfS4nKQogICAgICAgIHJldHVybgogICAgc2NyaXB0ID0gb3MucGF0aC5qb2luKG9zLnBhdGguZGlybmFtZShvcy5wYXRoLmFic3BhdGgoX19maWxlX18pKSwgJ3NlcnZlci5weScpCiAgICBpZiBub3Qgb3MucGF0aC5leGlzdHMoc2NyaXB0KToKICAgICAgICBwcmludCgnICBXQVJOSU5HOiBzZXJ2ZXIucHkgbm90IGZvdW5kIOKAlCBDT1JTIHByb3h5IG5vdCBzdGFydGVkLicpCiAgICAgICAgcmV0dXJuCiAgICBweXRob24gID0gc3lzLmV4ZWN1dGFibGUKICAgIHB5dGhvbncgPSBweXRob24ucmVwbGFjZSgncHl0aG9uLmV4ZScsICdweXRob253LmV4ZScpCiAgICBleGUgICAgID0gcHl0aG9udyBpZiBvcy5wYXRoLmV4aXN0cyhweXRob253KSBlbHNlIHB5dGhvbgogICAga3dhcmdzICA9IHt9CiAgICBpZiBzeXMucGxhdGZvcm0gPT0gJ3dpbjMyJzoKICAgICAgICBrd2FyZ3NbJ2NyZWF0aW9uZmxhZ3MnXSA9IHN1YnByb2Nlc3MuQ1JFQVRFX05PX1dJTkRPVwogICAgc3VicHJvY2Vzcy5Qb3BlbihbZXhlLCBzY3JpcHRdLCBzdGRvdXQ9c3VicHJvY2Vzcy5ERVZOVUxMLCBzdGRlcnI9c3VicHJvY2Vzcy5ERVZOVUxMLCAqKmt3YXJncykKICAgIGZvciBfIGluIHJhbmdlKDYpOgogICAgICAgIHRpbWUuc2xlZXAoMC41KQogICAgICAgIGlmIGlzX3BvcnRfb3BlbihQUk9YWV9QT1JUKToKICAgICAgICAgICAgcHJpbnQoZicgIENPUlMgcHJveHkgc3RhcnRlZCBvbiBwb3J0IHtQUk9YWV9QT1JUfS4nKQogICAgICAgICAgICByZXR1cm4KICAgIHByaW50KGYnICBXQVJOSU5HOiBDT1JTIHByb3h5IGRpZCBub3QgcmVzcG9uZCBvbiBwb3J0IHtQUk9YWV9QT1JUfS4nKQoKIyDilIDilIDilIAgRW50cnkgcG9pbnQg4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSACgppZiBfX25hbWVfXyA9PSAnX19tYWluX18nOgogICAgcHJpbnQoJ09kb28gRW1haWwgTGluayAtIExlYWQgQ2FwdHVyZSBTZXJ2ZXInKQogICAgc3RhcnRfcHJveHlfc2VydmVyKCkKICAgIHNlcnZlciA9IFRocmVhZGluZ0hUVFBTZXJ2ZXIoKCdsb2NhbGhvc3QnLCBQT1JUKSwgSU1BUEhhbmRsZXIpCiAgICBwcmludChmJ1JlYWR5IG9uIGh0dHA6Ly9sb2NhbGhvc3Q6e1BPUlR9ICB8ICBQcmVzcyBDdHJsK0MgdG8gc3RvcC5cbicpCiAgICB0cnk6CiAgICAgICAgc2VydmVyLnNlcnZlX2ZvcmV2ZXIoKQogICAgZXhjZXB0IEtleWJvYXJkSW50ZXJydXB0OgogICAgICAgIHByaW50KCdcblN0b3BwZWQuJykK"),c=>c.charCodeAt(0))); }
+</script>
+
+<script>
+// ─── Service Worker ──────────────────────────────────────────────────────────
+
+
+// ── Status Lights ─────────────────────────────────────────────────────────────
+
+function oelSetLight(id, status) {
+  // status: 'on' | 'off' | 'warn'
+  const el = document.getElementById('sl-' + id);
+  if (!el) return;
+  const colors = { on: 'var(--success)', off: 'var(--muted)', warn: 'var(--warning)', error: 'var(--danger)' };
+  el.style.background = colors[status] || colors.off;
+  el.style.boxShadow  = status === 'on' ? '0 0 6px var(--success)' : status === 'warn' ? '0 0 6px var(--warning)' : 'none';
+}
+
+async function oelRefreshStatusLights() {
+  // Odoo
+  oelSetLight('odoo', odooUid ? 'on' : 'off');
+
+  // Groq key present?
+  const groqKey = document.getElementById('gemini-key')?.value?.trim();
+  oelSetLight('groq', groqKey ? 'on' : 'off');
+
+  // IMAP server ping
+  try {
+    const r = await fetch(`${IMAP_SERVER}/ping`, { signal: AbortSignal.timeout(2500) });
+    oelSetLight('imap', r.ok ? 'on' : 'warn');
+  } catch { oelSetLight('imap', 'error'); }
+
+  // CORS proxy ping
+  try {
+    const r = await fetch('http://localhost:7842/ping', { signal: AbortSignal.timeout(2500) });
+    oelSetLight('proxy', r.ok ? 'on' : 'warn');
+  } catch { oelSetLight('proxy', 'error'); }
+
+  // Gmail auth status
+  try {
+    const r = await fetch('http://localhost:7842/gmail/status', { signal: AbortSignal.timeout(2500) });
+    const d = await r.json();
+    oelSetLight('gmail', d.authorized ? 'on' : d.has_creds ? 'warn' : 'off');
+  } catch { oelSetLight('gmail', 'off'); }
+}
   if (!AbortSignal.timeout) {
     AbortSignal.timeout = (ms) => {
       const ctrl = new AbortController();
@@ -3647,6 +3784,25 @@ let followUpDays = 14;
 const STORAGE_KEY = 'odoo_email_link_creds';
 
 // ─── Persistence ──────────────────────────────────────────
+// ── Compact mode ─────────────────────────────────────────────────────────────
+
+let _oelCompact = localStorage.getItem('oelCompact') === '1';
+
+function oelToggleCompact() {
+  _oelCompact = !_oelCompact;
+  localStorage.setItem('oelCompact', _oelCompact ? '1' : '0');
+  oelApplyCompact();
+}
+
+function oelApplyCompact() {
+  document.body.classList.toggle('oel-compact', _oelCompact);
+  const lbl = document.getElementById('compact-gear-label');
+  if (lbl) lbl.textContent = _oelCompact ? 'Compact mode ✓' : 'Compact mode';
+}
+
+// Apply on load
+document.addEventListener('DOMContentLoaded', oelApplyCompact);
+
 function saveCredentials() {
   const data = {
     url: document.getElementById('odoo-url').value,
@@ -3659,6 +3815,43 @@ function saveCredentials() {
   };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 }
+
+function setLight(id, state) {
+  // state: 'on' | 'off' | 'warn'
+  const colors = { on: 'var(--success)', off: 'var(--muted)', warn: 'var(--warning)' };
+  // Both header strip lights and connection banner lights share same IDs
+  document.querySelectorAll(`#${id} .sl-dot, #${id}`).forEach(el => {
+    el.style.background = colors[state] || colors.off;
+  });
+}
+
+async function updateStatusLights() {
+  // Groq key
+  const groqKey = document.getElementById('gemini-key')?.value?.trim() || '';
+  setLight('sl-groq', groqKey.startsWith('gsk_') ? 'on' : groqKey ? 'warn' : 'off');
+
+  // Odoo
+  setLight('sl-odoo', odooUid ? 'on' : 'off');
+
+  // IMAP / CORS proxy
+  try {
+    const r = await fetch(`${IMAP_SERVER}/ping`, { signal: AbortSignal.timeout(2000) });
+    setLight('sl-imap', r.ok ? 'on' : 'warn');
+  } catch { setLight('sl-imap', 'off'); }
+
+  try {
+    const r = await fetch('http://localhost:7842/ping', { signal: AbortSignal.timeout(2000) });
+    setLight('sl-proxy', r.ok ? 'on' : 'warn');
+  } catch { setLight('sl-proxy', 'off'); }
+
+  // Gmail
+  try {
+    const r = await fetch('http://localhost:7842/gmail/status', { signal: AbortSignal.timeout(2000) });
+    const d = await r.json();
+    setLight('sl-gmail', d.authorized ? 'on' : d.has_creds ? 'warn' : 'off');
+  } catch { setLight('sl-gmail', 'off'); }
+}
+
 
 function loadCredentials() {
   try {
@@ -3729,6 +3922,7 @@ async function goToLazDirect() {
   }
   loadActivityTypes();
   setStep(5);
+  updateStatusLights();
 }
 
 async function goToLeadCapture() {
@@ -3770,6 +3964,7 @@ async function goToStep2() {
   saveCredentials();
   setStep(2);
   await connectAndFetch();
+  updateStatusLights();
 }
 
 async function goToStep3() {
@@ -4935,6 +5130,8 @@ window.addEventListener('DOMContentLoaded', () => {
   const savedTheme = localStorage.getItem('oelTheme') || 'lime';
   setTheme(savedTheme, true);
   if (savedTheme === 'custom') lazLoadCustomColor();
+  // Update lights after credentials are restored
+  setTimeout(updateStatusLights, 800);
 });
 const THEME_COLORS = {
   lime: '#c8f04e', cyan: '#00d8ff', ember: '#ff7c2a', light: '#6c47ff', violet: '#c77dff'
@@ -5761,6 +5958,7 @@ function _pushSpec(draft) {
 // ═══════════════════════════════════════════════════════════
 
 const LAZ_PASSWORD   = 'LM';
+let _lazTemplates = [];
 let lazModeUnlocked  = false;
 let lazTemplates     = [];   // {id, name, keywords, body}
 let lazEmails        = [];   // browsed emails
@@ -8675,13 +8873,17 @@ async function fetchLeads() {
       staticEl.textContent = `Groq extracting ${i+1} of ${leads.length}…`;
       try {
         const hint = lead.ai_hint ? `\n\nNote: ${lead.ai_hint}` : '';
-        const sysMsg = 'You are a lead data extractor. Read the email and return ONLY a JSON object ' +
+        const sysMsg = 'You are a lead data extractor for a rental company CRM. Read the email and return ONLY a JSON object ' +
           'with exactly these keys: "customer_name", "phone", "email", "notes", "agent". ' +
-          'customer_name: full name of the caller or customer (often in ALL CAPS in call alerts). ' +
-          'phone: phone number exactly as shown. ' +
+          'customer_name: full name of the caller or customer. Often ALL CAPS in call alerts (e.g. "JOHN SMITH"). ' +
+          'Ignore company names — extract the individual person name only. ' +
+          'phone: primary phone number exactly as shown including area code. If multiple numbers, take the callback number. ' +
           'email: email address if present, else empty string. ' +
-          'notes: copy the FULL call summary or project description verbatim — do not shorten, summarise, or paraphrase. Include every detail. ' +
-          'agent: name of the agent, representative, or employee who handled the call or was assigned, if mentioned (e.g. "Agent Andrew" → "Andrew"). Empty string if not mentioned. ' +
+          'notes: copy the FULL call summary, inquiry details, or project description verbatim. Do not shorten. ' +
+          'Include what they need, their timeline, budget if mentioned, and any special requirements. ' +
+          'agent: first name only of the agent, rep, or employee who handled the call. ' +
+          'Look for patterns like "Agent: Andrew", "Handled by John", "Rep: Sarah", "your rep Andrew". ' +
+          'If the email mentions a specific employee by name as the contact, use that name. Empty string if not found. ' +
           'If a field is not found use an empty string. ' +
           'Return ONLY the raw JSON — no markdown, no backticks, no explanation.' + hint;
         const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -9498,13 +9700,23 @@ async function pushLeadToOdoo() {
   // Auto-assign to agent if their name matches an Odoo user and no manual assignment made
   if (agent && !document.getElementById('lm-user').value) {
     const agentLower = agent.toLowerCase().trim();
-    // Try exact first, then first-name-only match (e.g. "Andrew" matches "Andrew Cameron")
-    const match = odooUsers.find(u => u.name.toLowerCase() === agentLower)
-               || odooUsers.find(u => u.name.toLowerCase().split(' ')[0] === agentLower)
-               || odooUsers.find(u => u.name.toLowerCase().includes(agentLower));
+    // Strip common prefixes from call alert formats: "Agent Andrew", "Rep: Sarah", "your rep John"
+    const agentClean = agentLower
+      .replace(/^(agent|rep|representative|handled by|your rep|assigned to|contact):?\s*/i, '')
+      .trim();
+    const match =
+      // 1. Exact full name
+      odooUsers.find(u => u.name.toLowerCase() === agentClean) ||
+      // 2. First name only
+      odooUsers.find(u => u.name.toLowerCase().split(' ')[0] === agentClean) ||
+      // 3. Last name only
+      odooUsers.find(u => u.name.toLowerCase().split(' ').pop() === agentClean) ||
+      // 4. Name contains the agent string
+      odooUsers.find(u => u.name.toLowerCase().includes(agentClean)) ||
+      // 5. Agent string contains the user's first name (handles "Andrew C." → "Andrew Cameron")
+      odooUsers.find(u => agentClean.includes(u.name.toLowerCase().split(' ')[0]));
     if (match) {
       userId = match.id;
-      // Update the dropdown so user can see and override
       document.getElementById('lm-user').value = match.id;
     }
   }
@@ -9620,212 +9832,63 @@ async function pushLeadToOdoo() {
 
 
 
-// ─── README / Gear menu ──────────────────────────────────────────────────────
-
-const README_CONTENT = `# Odoo Email Link
-
-**Your Odoo CRM, supercharged with AI — in a single HTML file.**
-
-OEL is a Progressive Web App that handles two things your CRM can't do alone: drafting smart follow-up emails from overdue activities, and capturing inbound leads from your inbox before they fall through the cracks. No backend to host, no new accounts to create, no subscription.
-
----
-
-## What's inside
-
-### Follow-up Email Engine
-Connect to Odoo, see every overdue activity assigned to you, and get AI-drafted follow-up emails ready to review in seconds. Edit, attach a file, schedule a follow-up date, assign a colleague — then open your mail client with one click. Every sent email is logged to the Odoo chatter automatically.
-
-### Lead Capture Engine
-Point OEL at your Turbify / Yahoo Business inbox and it will scan for emails matching your saved templates (call alerts, quote requests, contact forms — whatever you receive). Groq AI reads the body and extracts the customer name, phone, email, and notes. Review the lead, confirm the assigned rep, pick an activity date, and push it to Odoo as an opportunity with one click. Duplicate checking runs automatically so you never pollute the CRM.
-
----
-
-## Getting started
-
-### What you need
-
-| Requirement | Notes |
-|---|---|
-| Odoo instance | XML-RPC access required. API key from Profile → Account Security → API Keys |
-| Groq API key | Free at [console.groq.com](https://console.groq.com) — no credit card |
-| Python 3 | Only needed for Local Server mode and Lead Capture |
-
-### First run
-
-1. Clone or download this repo
-2. Double-click **\`start.bat\`** (Windows) or run **\`python imap_server.py\`** (Mac/Linux)
-3. Open \`index.html\` in your browser (or use a local server — see below)
-4. Enter your Odoo and Groq credentials on Step 1, click **Continue**
-
-That's it. The local servers start silently in the background and handle both the CORS proxy and IMAP scanning.
-
-### Hosting (optional)
-
-The app works as a static site on any host:
-
-\`\`\`bash
-# GitHub Pages — push to main, enable Pages in repo settings
-# Netlify — drag the folder into the UI
-# Vercel
-vercel --prod
-\`\`\`
-
----
-
-## The five-step workflow
-
-\`\`\`
-Step 1  →  Step 2  →  Step 3  →  Step 4  →  Step 5
-Creds      Connect     Draft      Send       Lead Capture
-\`\`\`
-
-You can jump straight to **Step 5** (Lead Capture) from the credentials screen — no need to run the email drafting flow if you're only processing inbound leads.
-
----
-
-## Follow-up emails in detail
-
-- Fetches all activities assigned to you that are due today or overdue
-- Drafts a personalised email for each contact using Groq AI, pulling from the CRM record and recent chatter history
-- **Review & edit** each draft before sending — subject, body, recipient
-- Attach a file (it downloads alongside the mailto link so you can drag it in)
-- **Assign activity to another user** with their own follow-up date
-- **Skip / unskip** contacts from a batch
-- On send: fires \`mailto://\`, logs the email to chatter as a note, marks the activity done, schedules the next follow-up
-
----
-
-## Lead capture in detail
-
-### Setting up scan templates
-
-The **Spec Wizard** is the fastest way to build a template:
-1. Click **Wizard** in the Lead Specifications panel
-2. Browse your recent inbox and check the emails you want to base templates on
-3. Step through each — the body is shown exactly as the scanner will see it
-4. Adjust the pre-filled subject/sender filters and add an AI hint if useful
-5. **Save all & close**
-
-Alternatively, create a spec manually and fill in the filters yourself.
-
-### Scan filters
-
-Each spec has two filter types (at least one required):
-
-| Filter | Options | Example |
-|---|---|---|
-| Subject | contains, exact match | \`"Call In"\` matches \`"Re: Call In Request"\` |
-| Sender | exact address, domain only, contains | \`@searchkings.com\` matches any alert from that domain |
-
-Body search is also available but opt-in — it's slower since it downloads the full email.
-
-### AI extraction
-
-Groq reads the matched email body and extracts:
-- **Customer name** (handles ALL CAPS call alert formats)
-- **Phone** number
-- **Email** address
-- **Notes** — the full call summary or project description, verbatim
-- **Agent** — the rep who took the call, used to auto-assign the Odoo opportunity
-
-Add a hint to your spec to help Groq with unusual formats, e.g. *"This is a SearchKings call alert. Caller name is in ALL CAPS after the star rating line."*
-
-### Pushing to Odoo
-
-Before any push OEL checks \`crm.lead\` for matching email and phone. If a duplicate is found the push button is disabled and the existing records are shown — you can still override if you're sure it's a different opportunity. The check also runs at push time to catch concurrent entries by teammates.
-
-On push:
-1. Find or create \`res.partner\`
-2. Create \`crm.lead\` as opportunity
-3. Log the source email as a chatter note
-4. Create a \`mail.activity\` due on your chosen date — it shows up in the Follow-up list immediately
-
----
-
-## Settings & data
-
-### Export / Import
-
-Use **Export settings** on the credentials screen to download a single JSON file containing everything:
-- Odoo and Groq credentials
-- IMAP credentials
-- All lead specs
-- Theme preference
-
-Import on any machine to restore instantly. Specs are merged on import — existing ones are preserved.
-
-### Themes
-
-Five themes, switchable via the coloured dots in the top-right corner:
-
-| | Theme | Accent |
-|---|---|---|
-| 🟡 | Lime (default) | \`#c8f04e\` |
-| 🔵 | Cyan | \`#00d8ff\` |
-| 🟠 | Ember | \`#ff7c2a\` |
-| 🟣 | Light | \`#6c47ff\` |
-| 🩷 | Violet | \`#c77dff\` |
-
----
-
-## Local servers
-
-Two Python servers run locally to handle things browsers can't do:
-
-| Server | Port | Purpose |
-|---|---|---|
-| \`server.py\` | 7842 | CORS proxy for Odoo XML-RPC |
-| \`imap_server.py\` | 7843 | IMAP scanning + starts server.py automatically |
-
-**Start everything:** double-click \`start.bat\` (Windows) or run \`python imap_server.py\`.
-
-Use **Check servers** in the app to verify both are running. The **Test Groq AI** button confirms your API key is working before you run a full scan.
-
-### Without local servers
-
-Switch to **CORS Proxy** mode on the credentials screen. The app falls back to public CORS proxies (corsproxy.io and others) — fine for email drafting, but IMAP scanning requires the local server.
-
----
-
-## Repository structure
-
-\`\`\`
-OdooEmailLink/
-├── index.html              Main app — everything in one file
-├── imap_server.py          Lead Capture server (port 7843)
-├── server.py               CORS proxy (port 7842, auto-started)
-├── start.bat               Windows launcher — starts both servers + opens app
-├── manifest.json           PWA install metadata
-├── sw.js                   Service worker for offline support
-├── icons/                  App icons (SVG + PNG)
-└── README.md               You are here
-\`\`\`
-
----
-
-## Frequently asked questions
-
-**Do I need to leave a terminal open?**
-On Windows, \`start.bat\` launches both servers silently in the background — no terminal visible. On Mac/Linux, run \`python imap_server.py\` and minimise the window.
-
-**Is my data safe?**
-Everything runs locally. Credentials are stored in your browser's localStorage and optionally in an export file you control. Nothing is sent to any third-party service except Groq (for AI) and your own Odoo instance.
-
-**What Groq model does it use?**
-\`llama-3.3-70b-versatile\` by default — free tier, no credit card. Switch to \`llama-3.1-8b-instant\` for faster responses at higher volume.
-
-**Can multiple people use it?**
-Yes — each person runs their own copy and connects with their own Odoo credentials. Activities are always filtered to the logged-in user. Export your settings and share the JSON with a teammate to get them set up quickly (they'll need to add their own passwords).
-
-**Can I install it as an app?**
-Yes — open it in Chrome or Edge and look for the install icon in the address bar. It works as a standalone desktop or mobile app with offline support.
-
----
-
-*Built with Groq AI · Odoo XML-RPC · vanilla JS · Python · zero dependencies*
-`;
-
-// ─── Gear menu ───────────────────────────────────────────────────────────────
+// ─── Server File Downloads ───────────────────────────────────────────────────
+
+function oelDownloadFile(filename, content) {
+  const blob = new Blob([content], { type: 'text/plain' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = filename;
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+}
+
+function openServerFiles() {
+  const modal = document.getElementById('readme-modal');
+  const body  = document.getElementById('readme-body');
+  body.style.fontFamily = "'DM Sans', sans-serif";
+  body.style.whiteSpace = 'normal';
+  body.innerHTML = `
+    <div style="margin-bottom:14px">
+      <div style="font-size:0.78rem;color:var(--muted);line-height:1.7">
+        Place these files in your <strong style="color:var(--text)">OdooEmailLink</strong> folder alongside
+        <code style="font-family:'DM Mono',monospace;font-size:0.75rem;background:var(--surface2);padding:1px 5px;border-radius:4px">index.html</code>.
+        Run <code style="font-family:'DM Mono',monospace;font-size:0.75rem;background:var(--surface2);padding:1px 5px;border-radius:4px">start.bat</code> to launch.
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:10px">
+        <div style="flex:1">
+          <div style="font-size:0.85rem;font-weight:600;color:var(--text);font-family:'DM Mono',monospace;margin-bottom:2px">start.bat</div>
+          <div style="font-size:0.75rem;color:var(--muted)">Windows launcher — double-click to start OEL</div>
+          <div style="font-size:0.7rem;color:var(--accent);margin-top:2px">Run this first every time</div>
+        </div>
+        <button onclick="oelDownloadFile('start.bat', oelGetStartBat())" style="background:var(--accent);color:var(--logo-ink,#0f0f0f);border:none;border-radius:7px;padding:7px 16px;font-size:0.78rem;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap;flex-shrink:0">↓ Download</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:10px">
+        <div style="flex:1">
+          <div style="font-size:0.85rem;font-weight:600;color:var(--text);font-family:'DM Mono',monospace;margin-bottom:2px">server.py</div>
+          <div style="font-size:0.75rem;color:var(--muted)">CORS proxy server — port 7842</div>
+          <div style="font-size:0.7rem;color:var(--accent);margin-top:2px">Auto-started by start.bat</div>
+        </div>
+        <button onclick="oelDownloadFile('server.py', oelGetServerPy())" style="background:var(--accent);color:var(--logo-ink,#0f0f0f);border:none;border-radius:7px;padding:7px 16px;font-size:0.78rem;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap;flex-shrink:0">↓ Download</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:10px">
+        <div style="flex:1">
+          <div style="font-size:0.85rem;font-weight:600;color:var(--text);font-family:'DM Mono',monospace;margin-bottom:2px">imap_server.py</div>
+          <div style="font-size:0.75rem;color:var(--muted)">IMAP + Gmail scan server — port 7843</div>
+          <div style="font-size:0.7rem;color:var(--accent);margin-top:2px">Auto-started by start.bat</div>
+        </div>
+        <button onclick="oelDownloadFile('imap_server.py', oelGetImapServerPy())" style="background:var(--accent);color:var(--logo-ink,#0f0f0f);border:none;border-radius:7px;padding:7px 16px;font-size:0.78rem;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap;flex-shrink:0">↓ Download</button>
+      </div>
+    </div>`;
+  const _rt2 = document.getElementById('readme-modal-title'); if(_rt2) _rt2.textContent = '↓ Download Server Files';
+  modal.style.display = 'flex';
+  document.addEventListener('keydown', _readmeEsc);
+}
 
 function toggleGearMenu(e) {
   e.stopPropagation();
@@ -9882,7 +9945,7 @@ function openAbout() {
       Credentials stay in your browser · Nothing phoned home except Groq + Odoo
     </div>
   `;
-  document.getElementById('readme-modal').querySelector('div:first-child div:first-child').textContent = 'About Odoo Email Link';
+  const _rt = document.getElementById('readme-modal-title'); if(_rt) _rt.textContent = 'About Odoo Email Link';
   modal.style.display = 'flex';
   document.addEventListener('keydown', _readmeEsc);
 }
@@ -11382,7 +11445,6 @@ function persBlockSenderAt(idx) {
 }
 
 // Compatibility alias for old single-account scan
-function persScan() { persScanAll(); }
 
 // ── Mail Account Wizard ───────────────────────────────────
 
@@ -12305,7 +12367,24 @@ function persBriefingSendToSelf() {
 }
 
 
-// ═══════════════════════════════════════════════════════════
+function persBriefingExport() {
+  const text     = window._persBriefingText || '';
+  const flagged  = window._persBriefingFlagged || [];
+  const subtitle = window._persBriefingSubtitle || new Date().toLocaleDateString();
+  if (!text) { alert('Generate a briefing first.'); return; }
+  let full = `Personal Briefing — ${subtitle}\n${'─'.repeat(50)}\n\n${text}`;
+  if (flagged.length) full += `\n\n${'─'.repeat(50)}\n⚡ FLAGGED EMAILS\n\n` +
+    flagged.map((e,i) => `${i+1}. ${e.subject||'(no subject)'}\n   From: ${e.sender_email}`).join('\n\n');
+  const blob = new Blob([full], { type: 'text/plain' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url;
+  a.download = `OEL-Briefing-${subtitle.replace(/\//g,'-')}.txt`;
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+}
 
 const BLOCKLIST_KEY = 'oel_blocked_senders';
 let _blocklist = []; // [{id, pattern, note, ts, source, type: 'block'|'hide'}]
@@ -12371,7 +12450,7 @@ function closeBlocklist() {
 
 function blSetTab(tab) {
   _blTab = tab;
-  ['all','block','hide'].forEach(t => {
+  ['all','block','hide','leads'].forEach(t => {
     const btn  = document.getElementById('bl-tab-'+t);
     const info = document.getElementById('bl-info-'+t);
     const active = t === tab;
@@ -12392,12 +12471,15 @@ function renderBlocklist() {
   if (!list) return;
 
   const filtered = _blTab === 'all' ? _blocklist
+    : _blTab === 'leads' ? _blocklist.filter(b => b.source === 'lead-capture')
     : _blocklist.filter(b => b.type === _blTab);
 
   // Update counts
   document.getElementById('bl-count-all').textContent   = '(' + _blocklist.length + ')';
   document.getElementById('bl-count-block').textContent = '(' + _blocklist.filter(b=>b.type==='block').length + ')';
   document.getElementById('bl-count-hide').textContent  = '(' + _blocklist.filter(b=>b.type==='hide').length + ')';
+  const leadsEl = document.getElementById('bl-count-leads');
+  if (leadsEl) leadsEl.textContent = '(' + _blocklist.filter(b=>b.source==='lead-capture').length + ')';
 
   const sub = document.getElementById('blocklist-subtitle');
   if (sub) sub.textContent = _blocklist.filter(b=>b.type==='block').length + ' blocked · ' +
@@ -13023,11 +13105,94 @@ async function qmPopulateUsers() {
          .map(u => `<option value="${u.id}">${escHtml(u.name)}</option>`).join('');
 }
 
-async function qmSend() {
-  const userId  = parseInt(document.getElementById('qm-user-select').value);
-  const message = document.getElementById('qm-message').value.trim();
-  const statusEl = document.getElementById('qm-status');
+// ── Quick Message mode toggle + contact search ───────────────────────────────
 
+let _qmMode = 'colleague'; // 'colleague' | 'contact'
+
+function qmSetMode(mode) {
+  _qmMode = mode;
+  const colleagueBtn = document.getElementById('qm-mode-colleague');
+  const contactBtn   = document.getElementById('qm-mode-contact');
+  const userSel      = document.getElementById('qm-user-select');
+  const contactWrap  = document.getElementById('qm-contact-wrap');
+  const isContact = mode === 'contact';
+  colleagueBtn.style.background = isContact ? 'none' : 'var(--accent-dim)';
+  colleagueBtn.style.color      = isContact ? 'var(--muted)' : 'var(--accent)';
+  contactBtn.style.background   = isContact ? 'var(--accent-dim)' : 'none';
+  contactBtn.style.color        = isContact ? 'var(--accent)' : 'var(--muted)';
+  userSel.style.display     = isContact ? 'none' : '';
+  contactWrap.style.display = isContact ? '' : 'none';
+  if (isContact) document.getElementById('qm-contact-search').focus();
+}
+
+async function qmContactSearch(q) {
+  const results = document.getElementById('qm-contact-results');
+  if (!q || q.length < 2) { results.style.display = 'none'; return; }
+  if (!odooUid) { results.style.display = 'none'; return; }
+  try {
+    const partners = await odooExecute(odooUid, 'res.partner', 'search_read',
+      [[['name','ilike',q],['active','=',true]]],
+      { fields: ['id','name','email','phone'], limit: 8 });
+    if (!partners || !partners.length) { results.style.display = 'none'; return; }
+    results.innerHTML = partners.map(p => `
+      <div onclick="qmPickContact(${p.id}, '${escHtml(p.name).replace(/'/g,"\'")}', '${escHtml(p.email||'').replace(/'/g,"\'")}', '${escHtml(p.phone||'').replace(/'/g,"\'")}')"
+        style="padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--border);font-size:0.82rem"
+        onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">
+        <div style="color:var(--text);font-weight:500">${escHtml(p.name)}</div>
+        <div style="color:var(--muted);font-size:0.72rem">${escHtml(p.email||p.phone||'')}</div>
+      </div>`).join('');
+    results.style.display = 'block';
+  } catch(e) { results.style.display = 'none'; }
+}
+
+function qmPickContact(id, name, email, phone) {
+  document.getElementById('qm-contact-id').value = id;
+  document.getElementById('qm-contact-search').value = name;
+  document.getElementById('qm-contact-results').style.display = 'none';
+  const statusEl = document.getElementById('qm-status');
+  if (statusEl) statusEl.textContent = email ? email : phone ? phone : '';
+}
+
+// Close contact results when clicking outside
+document.addEventListener('click', e => {
+  if (!e.target.closest('#qm-contact-wrap')) {
+    const r = document.getElementById('qm-contact-results');
+    if (r) r.style.display = 'none';
+  }
+});
+
+async function qmSend() {
+  const message  = document.getElementById('qm-message').value.trim();
+  const statusEl = document.getElementById('qm-status');
+  if (!message) { statusEl.style.color='var(--danger)'; statusEl.textContent='Write a message first'; return; }
+  if (!odooUid) { statusEl.style.color='var(--danger)'; statusEl.textContent='Not connected to Odoo'; return; }
+
+  // Contact mode — post to partner chatter and send email
+  if (_qmMode === 'contact') {
+    const contactId   = parseInt(document.getElementById('qm-contact-id').value);
+    const contactName = document.getElementById('qm-contact-search').value.trim();
+    if (!contactId) { statusEl.style.color='var(--danger)'; statusEl.textContent='Search and select a contact first'; return; }
+    statusEl.style.color = 'var(--muted)';
+    statusEl.innerHTML = '<div class="dot spin" style="display:inline-block;margin-right:4px"></div> Sending…';
+    try {
+      await odooExecute(odooUid, 'res.partner', 'message_post', [[contactId]], {
+        body: message.split('\n').join('<br>'),
+        message_type: 'email',
+        subtype_xmlid: 'mail.mt_comment',
+      });
+      document.getElementById('qm-message').value = '';
+      statusEl.style.color = 'var(--success)';
+      statusEl.textContent = '✓ Message sent to ' + contactName;
+      setTimeout(() => { statusEl.textContent = ''; }, 3000);
+    } catch(e) {
+      statusEl.style.color = 'var(--danger)';
+      statusEl.textContent = '✗ ' + e.message;
+    }
+    return;
+  }
+
+  // Colleague mode (original)
+  const userId  = parseInt(document.getElementById('qm-user-select').value);
   if (!userId)  { statusEl.style.color='var(--danger)'; statusEl.textContent='Select a colleague first'; return; }
   if (!message) { statusEl.style.color='var(--danger)'; statusEl.textContent='Write a message first'; return; }
   if (!odooUid) { statusEl.style.color='var(--danger)'; statusEl.textContent='Not connected to Odoo'; return; }
@@ -13036,22 +13201,48 @@ async function qmSend() {
   statusEl.innerHTML = '<div class="dot spin" style="display:inline-block;margin-right:4px"></div> Sending…';
 
   try {
-    // Get partner_id for the selected user
-    const userRec = await odooExecute(odooUid,'res.users','read',[[userId]],{fields:['partner_id']});
-    const partnerId = userRec?.[0]?.partner_id?.[0];
-    if (!partnerId) throw new Error('Could not find partner for user');
+    const colName = odooUsers.find(u=>u.id===userId)?.name || 'colleague';
 
-    // Post to their inbox via mail.thread on res.partner
-    await odooExecute(odooUid,'res.partner','message_post',[[partnerId]], {
-      body: message.replace(/\n/g, '<br>'),
+    // Get partner_id for recipient
+    const userRec = await odooExecute(odooUid,'res.users','read',[[userId]],{fields:['partner_id']});
+    const toPartnerId = userRec?.[0]?.partner_id?.[0];
+    if (!toPartnerId) throw new Error('Could not find partner for user');
+
+    // Get sender partner_id
+    const senderRec = await odooExecute(odooUid,'res.users','read',[[odooUid]],{fields:['partner_id']});
+    const fromPartnerId = senderRec?.[0]?.partner_id?.[0];
+
+    // Find or create a direct message channel between the two users
+    const channelName = [odooUid, userId].sort().join('-');
+    let channelId = null;
+
+    // Search for existing DM channel
+    const existing = await odooExecute(odooUid,'mail.channel','search',
+      [[['channel_type','=','chat'],['channel_member_ids.partner_id','=',toPartnerId],
+        ['channel_member_ids.partner_id','=',fromPartnerId]]],
+      {limit:1});
+
+    if (existing && existing.length) {
+      channelId = existing[0];
+    } else {
+      // Create direct message channel
+      channelId = await odooExecute(odooUid,'mail.channel','create',[{
+        name: channelName,
+        channel_type: 'chat',
+        channel_member_ids: [[0,0,{partner_id: fromPartnerId}],[0,0,{partner_id: toPartnerId}]],
+      }]);
+    }
+
+    // Post message to the channel — this lands in Discuss inbox
+    await odooExecute(odooUid,'mail.channel','message_post',[[channelId]],{
+      body: message.split('\n').join('<br>'),
       message_type: 'comment',
       subtype_xmlid: 'mail.mt_comment',
-      partner_ids: [partnerId],
     });
 
     document.getElementById('qm-message').value = '';
     statusEl.style.color = 'var(--success)';
-    statusEl.textContent = '✓ Message sent to ' + (odooUsers.find(u=>u.id===userId)?.name || 'colleague');
+    statusEl.textContent = '✓ Sent to ' + colName + ' via Discuss';
     setTimeout(() => { statusEl.textContent = ''; }, 3000);
   } catch(e) {
     statusEl.style.color = 'var(--danger)';
@@ -14329,10 +14520,217 @@ document.addEventListener('keydown', e => {
   }
 });
 
+const README_CONTENT = `# Odoo Email Link
+
+**Your Odoo CRM, supercharged with AI — in a single HTML file.**
+
+OEL is a Progressive Web App that handles two things your CRM can't do alone: drafting smart follow-up emails from overdue activities, and capturing inbound leads from your inbox before they fall through the cracks. No backend to host, no new accounts to create, no subscription.
+
+---
+
+## What's inside
+
+### Follow-up Email Engine
+Connect to Odoo, see every overdue activity assigned to you, and get AI-drafted follow-up emails ready to review in seconds. Edit, attach a file, schedule a follow-up date, assign a colleague — then open your mail client with one click. Every sent email is logged to the Odoo chatter automatically.
+
+### Lead Capture Engine
+Point OEL at your Turbify / Yahoo Business inbox and it will scan for emails matching your saved templates (call alerts, quote requests, contact forms — whatever you receive). Groq AI reads the body and extracts the customer name, phone, email, and notes. Review the lead, confirm the assigned rep, pick an activity date, and push it to Odoo as an opportunity with one click. Duplicate checking runs automatically so you never pollute the CRM.
+
+---
+
+## Getting started
+
+### What you need
+
+| Requirement | Notes |
+|---|---|
+| Odoo instance | XML-RPC access required. API key from Profile → Account Security → API Keys |
+| Groq API key | Free at [console.groq.com](https://console.groq.com) — no credit card |
+| Python 3 | Only needed for Local Server mode and Lead Capture |
+
+### First run
+
+1. Clone or download this repo
+2. Double-click **\`start.bat\`** (Windows) or run **\`python imap_server.py\`** (Mac/Linux)
+3. Open \`index.html\` in your browser (or use a local server — see below)
+4. Enter your Odoo and Groq credentials on Step 1, click **Continue**
+
+That's it. The local servers start silently in the background and handle both the CORS proxy and IMAP scanning.
+
+### Hosting (optional)
+
+The app works as a static site on any host:
+
+\`\`\`bash
+# GitHub Pages — push to main, enable Pages in repo settings
+# Netlify — drag the folder into the UI
+# Vercel
+vercel --prod
+\`\`\`
+
+---
+
+## The five-step workflow
+
+\`\`\`
+Step 1  →  Step 2  →  Step 3  →  Step 4  →  Step 5
+Creds      Connect     Draft      Send       Lead Capture
+\`\`\`
+
+You can jump straight to **Step 5** (Lead Capture) from the credentials screen — no need to run the email drafting flow if you're only processing inbound leads.
+
+---
+
+## Follow-up emails in detail
+
+- Fetches all activities assigned to you that are due today or overdue
+- Drafts a personalised email for each contact using Groq AI, pulling from the CRM record and recent chatter history
+- **Review & edit** each draft before sending — subject, body, recipient
+- Attach a file (it downloads alongside the mailto link so you can drag it in)
+- **Assign activity to another user** with their own follow-up date
+- **Skip / unskip** contacts from a batch
+- On send: fires \`mailto://\`, logs the email to chatter as a note, marks the activity done, schedules the next follow-up
+
+---
+
+## Lead capture in detail
+
+### Setting up scan templates
+
+The **Spec Wizard** is the fastest way to build a template:
+1. Click **Wizard** in the Lead Specifications panel
+2. Browse your recent inbox and check the emails you want to base templates on
+3. Step through each — the body is shown exactly as the scanner will see it
+4. Adjust the pre-filled subject/sender filters and add an AI hint if useful
+5. **Save all & close**
+
+Alternatively, create a spec manually and fill in the filters yourself.
+
+### Scan filters
+
+Each spec has two filter types (at least one required):
+
+| Filter | Options | Example |
+|---|---|---|
+| Subject | contains, exact match | \`"Call In"\` matches \`"Re: Call In Request"\` |
+| Sender | exact address, domain only, contains | \`@searchkings.com\` matches any alert from that domain |
+
+Body search is also available but opt-in — it's slower since it downloads the full email.
+
+### AI extraction
+
+Groq reads the matched email body and extracts:
+- **Customer name** (handles ALL CAPS call alert formats)
+- **Phone** number
+- **Email** address
+- **Notes** — the full call summary or project description, verbatim
+- **Agent** — the rep who took the call, used to auto-assign the Odoo opportunity
+
+Add a hint to your spec to help Groq with unusual formats, e.g. *"This is a SearchKings call alert. Caller name is in ALL CAPS after the star rating line."*
+
+### Pushing to Odoo
+
+Before any push OEL checks \`crm.lead\` for matching email and phone. If a duplicate is found the push button is disabled and the existing records are shown — you can still override if you're sure it's a different opportunity. The check also runs at push time to catch concurrent entries by teammates.
+
+On push:
+1. Find or create \`res.partner\`
+2. Create \`crm.lead\` as opportunity
+3. Log the source email as a chatter note
+4. Create a \`mail.activity\` due on your chosen date — it shows up in the Follow-up list immediately
+
+---
+
+## Settings & data
+
+### Export / Import
+
+Use **Export settings** on the credentials screen to download a single JSON file containing everything:
+- Odoo and Groq credentials
+- IMAP credentials
+- All lead specs
+- Theme preference
+
+Import on any machine to restore instantly. Specs are merged on import — existing ones are preserved.
+
+### Themes
+
+Five themes, switchable via the coloured dots in the top-right corner:
+
+| | Theme | Accent |
+|---|---|---|
+| 🟡 | Lime (default) | \`#c8f04e\` |
+| 🔵 | Cyan | \`#00d8ff\` |
+| 🟠 | Ember | \`#ff7c2a\` |
+| 🟣 | Light | \`#6c47ff\` |
+| 🩷 | Violet | \`#c77dff\` |
+
+---
+
+## Local servers
+
+Two Python servers run locally to handle things browsers can't do:
+
+| Server | Port | Purpose |
+|---|---|---|
+| \`server.py\` | 7842 | CORS proxy for Odoo XML-RPC |
+| \`imap_server.py\` | 7843 | IMAP scanning + starts server.py automatically |
+
+**Start everything:** double-click \`start.bat\` (Windows) or run \`python imap_server.py\`.
+
+Use **Check servers** in the app to verify both are running. The **Test Groq AI** button confirms your API key is working before you run a full scan.
+
+### Without local servers
+
+Switch to **CORS Proxy** mode on the credentials screen. The app falls back to public CORS proxies (corsproxy.io and others) — fine for email drafting, but IMAP scanning requires the local server.
+
+---
+
+## Repository structure
+
+\`\`\`
+OdooEmailLink/
+├── index.html              Main app — everything in one file
+├── imap_server.py          Lead Capture server (port 7843)
+├── server.py               CORS proxy (port 7842, auto-started)
+├── start.bat               Windows launcher — starts both servers + opens app
+├── manifest.json           PWA install metadata
+├── sw.js                   Service worker for offline support
+├── icons/                  App icons (SVG + PNG)
+└── README.md               You are here
+\`\`\`
+
+---
+
+## Frequently asked questions
+
+**Do I need to leave a terminal open?**
+On Windows, \`start.bat\` launches both servers silently in the background — no terminal visible. On Mac/Linux, run \`python imap_server.py\` and minimise the window.
+
+**Is my data safe?**
+Everything runs locally. Credentials are stored in your browser's localStorage and optionally in an export file you control. Nothing is sent to any third-party service except Groq (for AI) and your own Odoo instance.
+
+**What Groq model does it use?**
+\`llama-3.3-70b-versatile\` by default — free tier, no credit card. Switch to \`llama-3.1-8b-instant\` for faster responses at higher volume.
+
+**Can multiple people use it?**
+Yes — each person runs their own copy and connects with their own Odoo credentials. Activities are always filtered to the logged-in user. Export your settings and share the JSON with a teammate to get them set up quickly (they'll need to add their own passwords).
+
+**Can I install it as an app?**
+Yes — open it in Chrome or Edge and look for the install icon in the address bar. It works as a standalone desktop or mobile app with offline support.
+
+---
+
+*Built with Groq AI · Odoo XML-RPC · vanilla JS · Python · zero dependencies*
+`;
+
 function openReadme() {
   const modal = document.getElementById('readme-modal');
   const body  = document.getElementById('readme-body');
   body.textContent = README_CONTENT;
+  body.style.fontFamily = "'DM Mono', monospace";
+  body.style.whiteSpace = 'pre-wrap';
+  const t = document.getElementById('readme-modal-title');
+  if (t) t.textContent = 'Help & README';
   modal.style.display = 'flex';
   document.addEventListener('keydown', _readmeEsc);
 }
@@ -14349,11 +14747,12 @@ function _readmeEsc(e) { if (e.key === 'Escape') closeReadme(); }
 
 </div><!-- end .container -->
 
+
 <!-- README Modal -->
 <div id="readme-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:9999;align-items:flex-start;justify-content:center;padding:24px;overflow-y:auto">
   <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;width:100%;max-width:700px;margin:auto;display:flex;flex-direction:column;overflow:hidden">
     <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--border)">
-      <div style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:var(--text)">Help &amp; README</div>
+      <div id="readme-modal-title" style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:var(--text)">Help &amp; README</div>
       <button onclick="closeReadme()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:1.1rem;padding:2px 8px;border-radius:4px;line-height:1">✕</button>
     </div>
     <div id="readme-body" style="padding:20px 24px;font-size:0.82rem;color:var(--muted);line-height:1.8;white-space:pre-wrap;font-family:'DM Mono',monospace;overflow-wrap:break-word"></div>
@@ -14368,150 +14767,13 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-// ── Global Debug Panel ────────────────────────────────────────────────────────
-
-const _oelDebugLog = [];
-
-function oelLog(msg, type = 'info') {
-  const ts = new Date().toLocaleTimeString('en-US', {hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'});
-  const entry = { ts, msg: String(msg), type };
-  _oelDebugLog.push(entry);
-  if (_oelDebugLog.length > 200) _oelDebugLog.shift();
-
-  const panel = document.getElementById('oel-debug-log');
-  if (panel && document.getElementById('oel-debug-panel').style.display !== 'none') {
-    oelDebugRenderLog();
-  }
-}
-
-function oelDebugRenderLog() {
-  const panel = document.getElementById('oel-debug-log');
-  if (!panel) return;
-  const colors = { error:'var(--danger)', warn:'var(--warning)', success:'var(--success)', info:'var(--muted)', head:'var(--accent)' };
-  panel.innerHTML = _oelDebugLog.map(e =>
-    `<div style="color:${colors[e.type]||'var(--text)'}"><span style="color:var(--muted);user-select:none">${e.ts} </span>${escHtml(e.msg)}</div>`
-  ).join('') || '<div style="color:var(--muted)">No log entries yet. Run a diagnostic above.</div>';
-  panel.scrollTop = panel.scrollHeight;
-}
-
-function oelDebugToggle() {
-  const panel = document.getElementById('oel-debug-panel');
-  if (!panel) return;
-  const open = panel.style.display !== 'none';
-  panel.style.display = open ? 'none' : 'flex';
-  if (!open) {
-    const ver = document.querySelector('meta[name="oel-version"]')?.content || '?';
-    const verEl = document.getElementById('oel-debug-version');
-    if (verEl) verEl.textContent = ver;
-    if (_oelDebugLog.length === 0) oelDebugRun('connections');
-    else oelDebugRenderLog();
-  }
-}
-
-function oelDebugClear() {
-  _oelDebugLog.length = 0;
-  oelDebugRenderLog();
-}
-
-async function oelDebugRun(mode) {
-  if (mode === 'connections') {
-    oelLog('── Connection Tests ──────────────────', 'head');
-
-    // IMAP server
-    try {
-      const r = await fetch('http://localhost:7843/ping', { signal: AbortSignal.timeout(3000) });
-      oelLog(`IMAP server (7843): ${r.ok ? '✓ online' : '✗ error ' + r.status}`, r.ok ? 'success' : 'error');
-    } catch(e) { oelLog(`IMAP server (7843): ✗ offline — ${e.message}`, 'error'); }
-
-    // CORS proxy
-    try {
-      const r = await fetch('http://localhost:7842/ping', { signal: AbortSignal.timeout(3000) });
-      oelLog(`CORS proxy  (7842): ${r.ok ? '✓ online' : '✗ error ' + r.status}`, r.ok ? 'success' : 'error');
-    } catch(e) { oelLog(`CORS proxy  (7842): ✗ offline — ${e.message}`, 'error'); }
-
-    // Gmail API
-    try {
-      const r = await fetch('http://localhost:7842/gmail/status', { signal: AbortSignal.timeout(3000) });
-      const d = await r.json();
-      oelLog(`Gmail API: libs=${d.has_libs} creds=${d.has_creds} token=${d.has_token} auth=${d.authorized}`, d.authorized ? 'success' : 'warn');
-    } catch(e) { oelLog(`Gmail API: ✗ — ${e.message}`, 'warn'); }
-
-    // Odoo
-    oelLog(`Odoo UID: ${odooUid || '✗ not connected'}`, odooUid ? 'success' : 'error');
-    if (odooConfig?.url) oelLog(`Odoo URL: ${odooConfig.url}`, 'info');
-
-  } else if (mode === 'state') {
-    oelLog('── App State ─────────────────────────', 'head');
-    oelLog(`Step: ${document.querySelector('.step-dot.active')?.textContent || '?'}`, 'info');
-    oelLog(`Laz Mode: ${lazModeUnlocked ? '✓ unlocked' : 'locked'}`, lazModeUnlocked ? 'success' : 'info');
-    oelLog(`Odoo users loaded: ${odooUsers?.length || 0}`, 'info');
-    oelLog(`Activity types: ${_activityTypes?.length || 0}`, 'info');
-    oelLog(`Lead specs: ${leadSpecs?.length || 0}`, 'info');
-    oelLog(`Pending leads: ${pendingLeads?.length || 0}`, 'info');
-    oelLog(`Personal accounts: ${_persAccounts?.length || 0}`, 'info');
-    oelLog(`Personal emails loaded: ${_persEmails?.length || 0}`, 'info');
-    oelLog(`Blocklist entries: ${_blocklist?.length || 0}`, 'info');
-    oelLog(`Theme: ${document.documentElement.getAttribute('data-theme') || 'lime'}`, 'info');
-
-  } else if (mode === 'storage') {
-    oelLog('── localStorage ──────────────────────', 'head');
-    const keys = ['odoo_email_link_creds','oel_imap_creds','oelTheme','oel_lead_specs',
-      'laz_notes','oel_pers_accounts','oel_pers_notes','oel_blocked_senders',
-      'oel_saved_searches','oel_quick_contacts','oel_my_name'];
-    keys.forEach(k => {
-      const val = localStorage.getItem(k);
-      if (val) {
-        try {
-          const parsed = JSON.parse(val);
-          const summary = Array.isArray(parsed) ? `[${parsed.length} items]`
-            : typeof parsed === 'object' ? `{${Object.keys(parsed).join(', ')}}` : String(parsed);
-          oelLog(`${k}: ${summary}`, 'info');
-        } catch { oelLog(`${k}: ${String(val).slice(0,80)}`, 'info'); }
-      } else {
-        oelLog(`${k}: (empty)`, 'warn');
-      }
-    });
-    oelLog(`Total localStorage keys: ${localStorage.length}`, 'info');
-  }
-
-  oelDebugRenderLog();
-}
-
-// Keyboard shortcut Ctrl+Shift+D
-document.addEventListener('keydown', e => {
-  if (e.ctrlKey && e.shiftKey && e.key === 'D') { e.preventDefault(); oelDebugToggle(); }
-});
-
-// Hook console.error to capture errors
-const _origConsoleError = console.error;
-console.error = (...args) => { _origConsoleError(...args); oelLog('✗ ' + args.join(' '), 'error'); };
-console.warn  = (...args) => { console.warn.orig?.(...args); oelLog('⚠ ' + args.join(' '), 'warn'); };
-
-// Capture unhandled errors
-window.addEventListener('error', e => oelLog(`✗ ${e.message} (${e.filename?.split('/').pop()}:${e.lineno})`, 'error'));
-window.addEventListener('unhandledrejection', e => oelLog(`✗ Unhandled promise: ${e.reason}`, 'error'));
-
-<!-- ── Global Debug Panel ──────────────────────────────────────────────── -->
-<div id="oel-debug-btn" onclick="oelDebugToggle()" title="OEL Debug Console (Ctrl+Shift+D)"
-  style="position:fixed;bottom:18px;left:18px;width:34px;height:34px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:9998;opacity:0.5;transition:opacity 0.2s;font-size:0.75rem;color:var(--muted);font-family:'DM Mono',monospace;font-weight:700;user-select:none"
-  onmouseover="this.style.opacity='1';this.style.borderColor='var(--accent)'"
-  onmouseout="this.style.opacity='0.5';this.style.borderColor='var(--border)'">
-  DBG
-</div>
-
-<div id="oel-debug-panel" style="display:none;position:fixed;bottom:64px;left:18px;width:580px;max-width:calc(100vw - 36px);max-height:70vh;background:var(--surface);border:1px solid var(--border);border-radius:12px;z-index:9999;box-shadow:0 12px 40px rgba(0,0,0,0.4);flex-direction:column;overflow:hidden">
-  <div style="display:flex;align-items:center;padding:10px 14px;border-bottom:1px solid var(--border);gap:10px;background:var(--surface2)">
-    <span style="font-size:0.72rem;font-weight:700;letter-spacing:0.06em;color:var(--accent);font-family:'DM Mono',monospace">OEL DEBUG</span>
-    <span id="oel-debug-version" style="font-size:0.68rem;color:var(--muted);font-family:'DM Mono',monospace"></span>
-    <div style="flex:1"></div>
-    <button onclick="oelDebugRun('connections')" style="background:none;border:1px solid var(--border);border-radius:5px;padding:2px 8px;font-size:0.7rem;color:var(--muted);cursor:pointer;font-family:'DM Sans',sans-serif" onmouseover="this.style.color='var(--accent)';this.style.borderColor='var(--accent)'" onmouseout="this.style.color='var(--muted)';this.style.borderColor='var(--border)'">Test connections</button>
-    <button onclick="oelDebugRun('state')" style="background:none;border:1px solid var(--border);border-radius:5px;padding:2px 8px;font-size:0.7rem;color:var(--muted);cursor:pointer;font-family:'DM Sans',sans-serif" onmouseover="this.style.color='var(--accent)';this.style.borderColor='var(--accent)'" onmouseout="this.style.color='var(--muted)';this.style.borderColor='var(--border)'">App state</button>
-    <button onclick="oelDebugRun('storage')" style="background:none;border:1px solid var(--border);border-radius:5px;padding:2px 8px;font-size:0.7rem;color:var(--muted);cursor:pointer;font-family:'DM Sans',sans-serif" onmouseover="this.style.color='var(--accent)';this.style.borderColor='var(--accent)'" onmouseout="this.style.color='var(--muted)';this.style.borderColor='var(--border)'">Storage</button>
-    <button onclick="oelDebugClear()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:0.8rem;padding:2px 6px" title="Clear log">⌫</button>
-    <button onclick="oelDebugToggle()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:0.9rem;padding:2px 6px">✕</button>
-  </div>
-  <div id="oel-debug-log" style="flex:1;overflow-y:auto;padding:10px 14px;font-family:'DM Mono',monospace;font-size:0.73rem;line-height:1.6;max-height:calc(70vh - 80px)"></div>
-</div>
-
-</body>
-</html>
+// Sync version stamps from meta tag
+(function() {
+  const v = document.querySelector('meta[name="oel-version"]')?.content || '';
+  if (!v) return;
+  ['oel-version-stamp','app-version-stamp'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = id === 'app-version-stamp' ? 'OEL ' + v : v;
+  });
+})();
+</script>

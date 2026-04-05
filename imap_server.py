@@ -398,23 +398,53 @@ class IMAPHandler(BaseHTTPRequestHandler):
 
         elif path == '/browse':
             # Return last N email headers (no spec filtering)
-            config = data.get('config', {})
-            limit  = int(data.get('limit', 30))
+            config       = data.get('config', {})
+            limit        = int(data.get('limit', 30))
+            flagged_only = bool(data.get('flagged_only', False))
             if not config.get('email') or not config.get('password'):
                 self._json({'error': 'Missing IMAP credentials'}, 400)
                 return
             try:
                 conn = connect_imap(config)
-                conn.select('INBOX', readonly=True)
-                status, uids = conn.uid('search', None, 'ALL')
-                if status != 'OK' or not uids[0]:
+
+                # Use explicit folder if provided, otherwise auto-detect
+                explicit_folder = data.get('folder', '').strip()
+                if explicit_folder:
+                    folders_to_try = [explicit_folder]
+                else:
+                    # Try INBOX first; if empty, try Gmail's All Mail folder
+                    folders_to_try = ['INBOX', '"[Gmail]/All Mail"', '[Gmail]/All Mail', 'INBOX.Inbox', 'Inbox']
+                selected_folder = None
+                uid_list = []
+                search_criteria = 'FLAGGED' if flagged_only else 'ALL'
+
+                for folder in folders_to_try:
+                    try:
+                        status, count_data = conn.select(folder, readonly=True)
+                        if status != 'OK':
+                            continue
+                        msg_count = int(count_data[0]) if count_data and count_data[0] else 0
+                        if msg_count == 0:
+                            continue
+                        status, uids = conn.uid('search', None, search_criteria)
+                        if status == 'OK' and uids[0]:
+                            uid_list = uids[0].split()
+                            if uid_list:
+                                selected_folder = folder
+                                break
+                    except Exception:
+                        continue
+
+                if not uid_list:
                     conn.logout()
-                    self._json({'emails': []})
+                    self._json({'emails': [], 'flagged_only': flagged_only,
+                                'debug': 'No emails found in any folder'})
                     return
-                uid_list = uids[0].split()[-limit:]  # most recent N
+
+                uid_list = uid_list[-limit:]
                 emails = []
                 for uid in reversed(uid_list):
-                    status, data2 = conn.uid('fetch', uid, '(BODY.PEEK[HEADER.FIELDS (FROM SUBJECT DATE)])')
+                    status, data2 = conn.uid('fetch', uid, '(BODY.PEEK[HEADER.FIELDS (FROM SUBJECT DATE FLAGS LIST-UNSUBSCRIBE)])')
                     if status != 'OK' or not data2 or data2[0] is None:
                         continue
                     raw_hdr  = data2[0][1] if isinstance(data2[0], tuple) else b''
@@ -422,16 +452,50 @@ class IMAPHandler(BaseHTTPRequestHandler):
                     subject  = decode_mime(hdr.get('Subject', ''))
                     sender   = decode_mime(hdr.get('From', ''))
                     date_str = hdr.get('Date', '')
+                    unsub    = hdr.get('List-Unsubscribe', '')
                     em       = re.search(r'<([^>]+)>', sender)
                     emails.append({
-                        'uid':          uid.decode(),
-                        'subject':      subject,
-                        'sender':       sender,
-                        'sender_email': em.group(1) if em else sender,
-                        'date':         date_str,
+                        'uid':              uid.decode(),
+                        'subject':          subject,
+                        'sender':           sender,
+                        'sender_email':     em.group(1) if em else sender,
+                        'date':             date_str,
+                        'flagged':          True if flagged_only else False,
+                        'list_unsubscribe': unsub,
                     })
                 conn.logout()
-                self._json({'emails': emails})
+                self._json({'emails': emails, 'flagged_only': flagged_only,
+                            'total_found': len(emails), 'folder': selected_folder})
+            except Exception as e:
+                self._json({'error': str(e)})
+
+        elif path == '/headers':
+            # Fetch full headers for a single email (for unsubscribe detection)
+            config = data.get('config', {})
+            uid    = data.get('uid', '')
+            if not config.get('email') or not config.get('password') or not uid:
+                self._json({'error': 'Missing params'}, 400)
+                return
+            try:
+                conn = connect_imap(config)
+                conn.select('INBOX', readonly=True)
+                status, data2 = conn.uid('fetch', uid.encode(), '(BODY.PEEK[HEADER])')
+                if status != 'OK' or not data2 or data2[0] is None:
+                    conn.logout()
+                    self._json({'error': 'Email not found'})
+                    return
+                raw_hdr = data2[0][1] if isinstance(data2[0], tuple) else b''
+                hdr = email.message_from_bytes(raw_hdr)
+                unsub  = hdr.get('List-Unsubscribe', '')
+                sender = decode_mime(hdr.get('From', ''))
+                em     = re.search(r'<([^>]+)>', sender)
+                conn.logout()
+                self._json({
+                    'list_unsubscribe': unsub,
+                    'sender':           sender,
+                    'sender_email':     em.group(1) if em else sender,
+                    'subject':          decode_mime(hdr.get('Subject', '')),
+                })
             except Exception as e:
                 self._json({'error': str(e)})
 
@@ -454,6 +518,30 @@ class IMAPHandler(BaseHTTPRequestHandler):
                 body = get_text_body(msg)
                 conn.logout()
                 self._json({'body': body})
+            except Exception as e:
+                self._json({'error': str(e)})
+
+        elif path == '/folders':
+            # List available IMAP folders for a given account
+            config = data.get('config', {})
+            if not config.get('email') or not config.get('password'):
+                self._json({'error': 'Missing credentials'}, 400)
+                return
+            try:
+                conn = connect_imap(config)
+                status, folder_list = conn.list()
+                conn.logout()
+                folders = []
+                if status == 'OK':
+                    for f in folder_list:
+                        if f:
+                            # Parse folder name from response like: (\HasNoChildren) "/" "INBOX"
+                            decoded = f.decode('utf-8', errors='ignore') if isinstance(f, bytes) else str(f)
+                            # Extract folder name — last quoted or unquoted token
+                            m = re.search(r'"([^"]+)"\s*$', decoded) or re.search(r'(\S+)\s*$', decoded)
+                            if m:
+                                folders.append(m.group(1))
+                self._json({'folders': folders})
             except Exception as e:
                 self._json({'error': str(e)})
 
@@ -505,9 +593,9 @@ class IMAPHandler(BaseHTTPRequestHandler):
             def run(): result_box[0] = imap_fetch(config, specs, days)
             t = threading.Thread(target=run, daemon=True)
             t.start()
-            t.join(timeout=180)
+            t.join(timeout=480)
             if t.is_alive():
-                sp(running=False, stage='error', message='Scan timed out (3 min limit).')
+                sp(running=False, stage='error', message='Scan timed out (8 min limit).')
                 self._json({'leads': [{'error': 'Timed out. Try a shorter date range.'}], 'debug': {}})
             else:
                 self._json(result_box[0] or {'leads': [], 'debug': {}})
